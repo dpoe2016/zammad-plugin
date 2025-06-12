@@ -1,0 +1,49 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <id>de.dp_coding.zammad-plugin</id>
+
+    <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+    <name>Zammad Branch Creator</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor url="https://github.com/dp-coding">DP Coding</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
+    <description><![CDATA[
+    This plugin integrates with Zammad ticketing system to create Git branches for tickets.<br>
+    <ul>
+      <li>View open tickets from your Zammad instance</li>
+      <li>Select a ticket to create a feature branch</li>
+      <li>Automatically formats branch names based on ticket ID and title</li>
+    </ul>
+  ]]></description>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <!-- Extension points defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- No extensions needed as services are annotated with @Service -->
+    </extensions>
+
+    <actions>
+        <group id="ZammadPlugin.ActionGroup" text="Zammad" description="Zammad ticketing system integration">
+            <add-to-group group-id="VcsGroups" anchor="last"/>
+            <action id="ZammadPlugin.Settings" 
+                    class="de.dp_coding.zammadplugin.ZammadSettingsAction" 
+                    text="Zammad Settings" 
+                    description="Configure Zammad API connection settings"/>
+            <separator/>
+            <action id="ZammadPlugin.CreateBranch" 
+                    class="de.dp_coding.zammadplugin.ZammadBranchAction" 
+                    text="Create Branch from Zammad Ticket" 
+                    description="Create a new Git branch based on a selected Zammad ticket"/>
+        </group>
+    </actions>
+</idea-plugin>
