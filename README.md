@@ -55,7 +55,7 @@ This project uses Gradle as its build system. To build the plugin from source:
 
 1. Clone the repository:
    ```
-   git clone https://github.com/dp-coding/zammad-plugin.git
+   git clone https://github.com/dpoe2016/zammad-plugin.git
    cd zammad-plugin
    ```
 
