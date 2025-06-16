@@ -40,15 +40,10 @@
     <actions>
         <group id="ZammadPlugin.ActionGroup" text="Zammad" description="Zammad ticketing system integration">
             <add-to-group group-id="VcsGroups" anchor="last"/>
-            <action id="ZammadPlugin.Settings" 
-                    class="de.dp_coding.zammadplugin.ZammadSettingsAction" 
-                    text="Zammad Settings" 
-                    description="Configure Zammad API connection settings"/>
-            <separator/>
-            <action id="ZammadPlugin.CreateBranch" 
+            <action id="ZammadPlugin.ShowToolWindow" 
                     class="de.dp_coding.zammadplugin.ZammadBranchAction" 
-                    text="Create Branch from Zammad Ticket" 
-                    description="Create a new Git branch based on a selected Zammad ticket"/>
+                    text="Show Zammad Tickets" 
+                    description="Show Zammad tickets tool window"/>
         </group>
     </actions>
 </idea-plugin>

@@ -1,10 +1,10 @@
 package de.dp_coding.zammadplugin.ui;
 
-import com.intellij.openapi.actionSystem.ActionManager;
-import com.intellij.openapi.actionSystem.ActionToolbar;
-import com.intellij.openapi.actionSystem.DefaultActionGroup;
+import com.intellij.icons.AllIcons;
+import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.ide.BrowserUtil;
 import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.ui.components.JBList;
@@ -12,15 +12,21 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.ui.JBUI;
 import de.dp_coding.zammadplugin.api.ZammadService;
 import de.dp_coding.zammadplugin.model.Ticket;
+import git4idea.GitUtil;
+import git4idea.branch.GitBrancher;
+import git4idea.repo.GitRepository;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.DefaultListModel;
 import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * View for selecting a Zammad ticket.
@@ -57,19 +63,74 @@ public class TicketSelectionView {
             }
         });
 
-        // Add double-click listener
-        ticketList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && ticketSelectedCallback != null) {
-                Ticket selectedTicket = ticketList.getSelectedValue();
-                if (selectedTicket != null) {
-                    ticketSelectedCallback.accept(selectedTicket);
+        // Add mouse listener for double-click
+        ticketList.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    Ticket selectedTicket = ticketList.getSelectedValue();
+                    if (selectedTicket != null) {
+                        createBranchForTicket(selectedTicket);
+                    }
                 }
             }
         });
 
         // Create toolbar
         DefaultActionGroup actionGroup = new DefaultActionGroup();
-        // TODO: Add refresh action if needed
+
+        // Add refresh action
+        actionGroup.add(new AnAction("Refresh Tickets", "Refresh the list of tickets", AllIcons.Actions.Refresh) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                loadTickets();
+            }
+        });
+
+        // Add create branch action
+        actionGroup.add(new AnAction("Create Branch", "Create a Git branch for the selected ticket", AllIcons.Vcs.Branch) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                Ticket selectedTicket = ticketList.getSelectedValue();
+                if (selectedTicket != null) {
+                    createBranchForTicket(selectedTicket);
+                } else {
+                    Messages.showInfoMessage(project, "Please select a ticket first", "No Ticket Selected");
+                }
+            }
+
+            @Override
+            public void update(@NotNull AnActionEvent e) {
+                e.getPresentation().setEnabled(ticketList.getSelectedValue() != null);
+            }
+        });
+
+        // Add open ticket in browser action
+        actionGroup.add(new AnAction("Open in Browser", "Open the selected ticket in browser", AllIcons.General.Web) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                Ticket selectedTicket = ticketList.getSelectedValue();
+                if (selectedTicket != null) {
+                    openTicketInBrowser(selectedTicket);
+                } else {
+                    Messages.showInfoMessage(project, "Please select a ticket first", "No Ticket Selected");
+                }
+            }
+
+            @Override
+            public void update(@NotNull AnActionEvent e) {
+                e.getPresentation().setEnabled(ticketList.getSelectedValue() != null);
+            }
+        });
+
+        // Add settings action
+        actionGroup.add(new AnAction("Settings", "Configure Zammad API connection settings", AllIcons.General.Settings) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                ZammadSettingsDialog dialog = new ZammadSettingsDialog(project);
+                dialog.show();
+            }
+        });
 
         ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar(
                 "ZammadToolbar", actionGroup, true);
@@ -133,5 +194,87 @@ public class TicketSelectionView {
      */
     public JComponent getContent() {
         return mainPanel;
+    }
+
+    /**
+     * Creates a Git branch for the given ticket.
+     *
+     * @param ticket The ticket to create a branch for
+     */
+    private void createBranchForTicket(Ticket ticket) {
+        // Check if the project has Git enabled
+        GitRepository gitRepository = getGitRepository(project);
+        if (gitRepository == null) {
+            Messages.showErrorDialog(
+                project,
+                "This project is not under Git version control.",
+                "Cannot Create Branch"
+            );
+            return;
+        }
+
+        // Create a sanitized branch name from the ticket
+        String sanitizedTitle = Pattern.compile("[^a-zA-Z0-9-]").matcher(ticket.getTitle()).replaceAll("-").toLowerCase();
+        String branchName = ticket.getId() + "-" + sanitizedTitle;
+
+        // Check if we have a current branch
+        if (gitRepository.getCurrentBranch() == null) {
+            Messages.showErrorDialog(
+                project,
+                "Could not determine the current branch.",
+                "Cannot Create Branch"
+            );
+            return;
+        }
+
+        // Create the branch
+        GitBrancher brancher = GitBrancher.getInstance(project);
+        brancher.checkoutNewBranch(branchName, Collections.singletonList(gitRepository));
+
+        Messages.showInfoMessage(
+            project,
+            "Created and checked out branch '" + branchName + "' for ticket #" + ticket.getId() + ": " + ticket.getTitle(),
+            "Branch Created"
+        );
+    }
+
+    /**
+     * Gets the Git repository for the project.
+     *
+     * @param project The project
+     * @return The Git repository, or null if not found
+     */
+    @Nullable
+    private GitRepository getGitRepository(Project project) {
+        List<GitRepository> repositories = GitUtil.getRepositoryManager(project).getRepositories();
+        return repositories.isEmpty() ? null : repositories.get(0);
+    }
+
+    /**
+     * Opens the selected ticket in the browser.
+     *
+     * @param ticket The ticket to open in the browser
+     */
+    private void openTicketInBrowser(Ticket ticket) {
+        ZammadService zammadService = ZammadService.getInstance();
+        if (!zammadService.isConfigured()) {
+            Messages.showErrorDialog(
+                project,
+                "Zammad service is not configured. Please set the Zammad URL and API token.",
+                "Configuration Error"
+            );
+            return;
+        }
+
+        String zammadUrl = zammadService.getZammadUrl();
+        if (zammadUrl.endsWith("/")) {
+            zammadUrl = zammadUrl.substring(0, zammadUrl.length() - 1);
+        }
+
+        // Construct the ticket URL
+        String ticketUrl = zammadUrl + "/#ticket/zoom/" + ticket.getId();
+
+        // Open the URL in the browser
+        BrowserUtil.browse(ticketUrl);
     }
 }
