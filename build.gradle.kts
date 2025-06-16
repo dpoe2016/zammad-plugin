@@ -58,8 +58,12 @@ tasks {
         systemProperty("intellij.headless.jdk.finder.enabled", "false")
     }
 
-    // Skip buildSearchableOptions task to avoid "Only one instance of IDEA can be run at a time" error
+    // Skip searchable options tasks to avoid build errors
     named("buildSearchableOptions") {
+        enabled = false
+    }
+
+    named("prepareJarSearchableOptions") {
         enabled = false
     }
 
