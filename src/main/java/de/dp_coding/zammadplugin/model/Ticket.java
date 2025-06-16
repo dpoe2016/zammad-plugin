@@ -67,7 +67,7 @@ public class Ticket {
 
     @Override
     public String toString() {
-        return "#" + number + ": " + title;
+        return "#" + id + ": " + title;
     }
 
     @Override

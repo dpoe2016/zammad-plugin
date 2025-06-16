@@ -4,6 +4,7 @@ import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.ide.BrowserUtil;
 import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.ui.components.JBList;
@@ -104,6 +105,33 @@ public class TicketSelectionView {
             }
         });
 
+        // Add open ticket in browser action
+        actionGroup.add(new AnAction("Open in Browser", "Open the selected ticket in browser", AllIcons.General.Web) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                Ticket selectedTicket = ticketList.getSelectedValue();
+                if (selectedTicket != null) {
+                    openTicketInBrowser(selectedTicket);
+                } else {
+                    Messages.showInfoMessage(project, "Please select a ticket first", "No Ticket Selected");
+                }
+            }
+
+            @Override
+            public void update(@NotNull AnActionEvent e) {
+                e.getPresentation().setEnabled(ticketList.getSelectedValue() != null);
+            }
+        });
+
+        // Add settings action
+        actionGroup.add(new AnAction("Settings", "Configure Zammad API connection settings", AllIcons.General.Settings) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                ZammadSettingsDialog dialog = new ZammadSettingsDialog(project);
+                dialog.show();
+            }
+        });
+
         ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar(
                 "ZammadToolbar", actionGroup, true);
         toolbar.setTargetComponent(mainPanel);
@@ -187,7 +215,7 @@ public class TicketSelectionView {
 
         // Create a sanitized branch name from the ticket
         String sanitizedTitle = Pattern.compile("[^a-zA-Z0-9-]").matcher(ticket.getTitle()).replaceAll("-").toLowerCase();
-        String branchName = "feature/" + ticket.getId() + "-" + sanitizedTitle;
+        String branchName = ticket.getId() + "-" + sanitizedTitle;
 
         // Check if we have a current branch
         if (gitRepository.getCurrentBranch() == null) {
@@ -220,5 +248,33 @@ public class TicketSelectionView {
     private GitRepository getGitRepository(Project project) {
         List<GitRepository> repositories = GitUtil.getRepositoryManager(project).getRepositories();
         return repositories.isEmpty() ? null : repositories.get(0);
+    }
+
+    /**
+     * Opens the selected ticket in the browser.
+     *
+     * @param ticket The ticket to open in the browser
+     */
+    private void openTicketInBrowser(Ticket ticket) {
+        ZammadService zammadService = ZammadService.getInstance();
+        if (!zammadService.isConfigured()) {
+            Messages.showErrorDialog(
+                project,
+                "Zammad service is not configured. Please set the Zammad URL and API token.",
+                "Configuration Error"
+            );
+            return;
+        }
+
+        String zammadUrl = zammadService.getZammadUrl();
+        if (zammadUrl.endsWith("/")) {
+            zammadUrl = zammadUrl.substring(0, zammadUrl.length() - 1);
+        }
+
+        // Construct the ticket URL
+        String ticketUrl = zammadUrl + "/#ticket/zoom/" + ticket.getId();
+
+        // Open the URL in the browser
+        BrowserUtil.browse(ticketUrl);
     }
 }

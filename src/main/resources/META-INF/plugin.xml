@@ -40,11 +40,6 @@
     <actions>
         <group id="ZammadPlugin.ActionGroup" text="Zammad" description="Zammad ticketing system integration">
             <add-to-group group-id="VcsGroups" anchor="last"/>
-            <action id="ZammadPlugin.Settings" 
-                    class="de.dp_coding.zammadplugin.ZammadSettingsAction" 
-                    text="Zammad Settings" 
-                    description="Configure Zammad API connection settings"/>
-            <separator/>
             <action id="ZammadPlugin.ShowToolWindow" 
                     class="de.dp_coding.zammadplugin.ZammadBranchAction" 
                     text="Show Zammad Tickets" 

@@ -7,6 +7,8 @@ This plugin integrates with the Zammad ticketing system to create Git branches f
 - View open tickets from your Zammad instance
 - Select a ticket to create a feature branch
 - Automatically formats branch names based on ticket ID and title
+- Open tickets directly in your web browser
+- Access settings directly from the tool window
 - Seamless integration with Git
 
 ## Requirements
@@ -37,7 +39,9 @@ This plugin integrates with the Zammad ticketing system to create Git branches f
 
 Before using the plugin, you need to configure your Zammad API connection:
 
-1. Go to VCS → Zammad → Zammad Settings
+1. Access the settings dialog by either:
+   - Clicking the "Settings" button in the Zammad Tickets tool window toolbar, or
+   - Going to VCS → Zammad → Show Zammad Tickets, then clicking the "Settings" button
 2. Enter your Zammad instance URL (e.g., https://your-zammad-instance.com)
 3. Enter your API token (can be generated in your Zammad user profile)
 4. Click "Test Connection" to verify your settings
@@ -50,7 +54,11 @@ Before using the plugin, you need to configure your Zammad API connection:
 3. To create a branch for a ticket, either:
    - Double-click on a ticket in the list, or
    - Select a ticket and click the "Create Branch" button in the toolbar
-4. The plugin will automatically create a Git branch with a name based on the ticket ID and title
+4. The plugin will automatically create a Git branch with a name based on the ticket ID and title (format: `{ticket-id}-{sanitized-title}`)
+5. Additional actions available in the toolbar:
+   - Click the "Open in Browser" button to view the selected ticket in your web browser
+   - Click the "Settings" button to configure your Zammad API connection
+   - Click the "Refresh" button to update the ticket list
 
 Alternatively, you can access the tool window from VCS → Zammad → Show Zammad Tickets
 

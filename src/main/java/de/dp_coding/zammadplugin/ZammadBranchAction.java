@@ -80,7 +80,7 @@ public class ZammadBranchAction extends AnAction {
     private void createBranchForTicket(Project project, GitRepository repository, Ticket ticket) {
         // Create a sanitized branch name from the ticket
         String sanitizedTitle = Pattern.compile("[^a-zA-Z0-9-]").matcher(ticket.getTitle()).replaceAll("-").toLowerCase();
-        String branchName = "feature/" + ticket.getId() + "-" + sanitizedTitle;
+        String branchName = ticket.getId() + "-" + sanitizedTitle;
 
         // Check if we have a current branch
         if (repository.getCurrentBranch() == null) {
