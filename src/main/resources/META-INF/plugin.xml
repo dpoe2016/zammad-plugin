@@ -29,7 +29,12 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <!-- No extensions needed as services are annotated with @Service -->
+        <!-- Register the Zammad tool window -->
+        <toolWindow id="Zammad Tickets" 
+                   secondary="true"
+                   icon="AllIcons.General.Modified"
+                   anchor="right"
+                   factoryClass="de.dp_coding.zammadplugin.ui.ZammadToolWindowFactory"/>
     </extensions>
 
     <actions>

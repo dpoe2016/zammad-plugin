@@ -1,6 +1,5 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.1.0"
     id("org.jetbrains.intellij.platform") version "2.5.0"
 }
 
@@ -52,8 +51,20 @@ tasks {
         sourceCompatibility = "21"
         targetCompatibility = "21"
     }
-    withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "21"
+
+    // Disable Java home finding in headless mode to avoid issues with tilde paths
+    withType<JavaExec> {
+        systemProperty("ide.browser.jcef.headless.enabled", "false")
+        systemProperty("intellij.headless.jdk.finder.enabled", "false")
+    }
+
+    // Skip searchable options tasks to avoid build errors
+    named("buildSearchableOptions") {
+        enabled = false
+    }
+
+    named("prepareJarSearchableOptions") {
+        enabled = false
     }
 
     // Create a zip distribution of the plugin

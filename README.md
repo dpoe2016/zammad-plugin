@@ -74,7 +74,7 @@ The plugin ZIP file will be created in the `build/distributions` directory.
 ## Development
 
 The plugin is built using:
-- Kotlin
+- Java
 - IntelliJ Platform Plugin SDK
 - Retrofit for API communication
 - Gson for JSON parsing
