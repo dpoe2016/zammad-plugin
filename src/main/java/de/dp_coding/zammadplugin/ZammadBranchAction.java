@@ -6,7 +6,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import de.dp_coding.zammadplugin.api.ZammadService;
 import de.dp_coding.zammadplugin.model.Ticket;
-import de.dp_coding.zammadplugin.ui.TicketSelectionDialog;
+import de.dp_coding.zammadplugin.ui.TicketSelectionView;
 import de.dp_coding.zammadplugin.ui.ZammadSettingsDialog;
 import git4idea.GitUtil;
 import git4idea.branch.GitBrancher;
@@ -65,40 +65,10 @@ public class ZammadBranchAction extends AnAction {
             }
         }
 
-        // Get tickets from Zammad
-        try {
-            List<Ticket> tickets = zammadService.getTicketsForCurrentUser();
-
-            if (tickets.isEmpty()) {
-                Messages.showInfoMessage(
-                    project,
-                    "No open tickets found for the current user.",
-                    "No Open Tickets Available"
-                );
-                return;
-            }
-
-            // Show ticket selection dialog
-            TicketSelectionDialog dialog = new TicketSelectionDialog(project, tickets);
-            if (dialog.showAndGet()) {
-                Ticket selectedTicket = dialog.getSelectedTicket();
-                if (selectedTicket != null) {
-                    createBranchForTicket(project, gitRepository, selectedTicket);
-                }
-            }
-        } catch (IOException ex) {
-            Messages.showErrorDialog(
-                project,
-                "Failed to fetch tickets: " + ex.getMessage(),
-                "Error"
-            );
-        } catch (Exception ex) {
-            Messages.showErrorDialog(
-                project,
-                "An unexpected error occurred: " + ex.getMessage(),
-                "Error"
-            );
-        }
+        // Show ticket selection tool window
+        de.dp_coding.zammadplugin.ui.ZammadToolWindowService.getInstance()
+            .showToolWindow(project, selectedTicket -> 
+                createBranchForTicket(project, gitRepository, selectedTicket));
     }
 
     @Nullable
