@@ -52,6 +52,17 @@ tasks {
         targetCompatibility = "21"
     }
 
+    // Disable Java home finding in headless mode to avoid issues with tilde paths
+    withType<JavaExec> {
+        systemProperty("ide.browser.jcef.headless.enabled", "false")
+        systemProperty("intellij.headless.jdk.finder.enabled", "false")
+    }
+
+    // Skip buildSearchableOptions task to avoid "Only one instance of IDEA can be run at a time" error
+    named("buildSearchableOptions") {
+        enabled = false
+    }
+
     // Create a zip distribution of the plugin
     register<Zip>("createPluginZip") {
         dependsOn("buildPlugin")
