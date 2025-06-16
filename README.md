@@ -45,9 +45,14 @@ Before using the plugin, you need to configure your Zammad API connection:
 
 ## Usage
 
-1. Go to VCS → Zammad → Create Branch from Zammad Ticket
-2. Select a ticket from the list of open tickets
-3. The plugin will automatically create a Git branch with a name based on the ticket ID and title
+1. Open the Zammad Tickets tool window (View → Tool Windows → Zammad Tickets)
+2. You'll see a list of your open tickets from Zammad
+3. To create a branch for a ticket, either:
+   - Double-click on a ticket in the list, or
+   - Select a ticket and click the "Create Branch" button in the toolbar
+4. The plugin will automatically create a Git branch with a name based on the ticket ID and title
+
+Alternatively, you can access the tool window from VCS → Zammad → Show Zammad Tickets
 
 ## Building from Source
 
