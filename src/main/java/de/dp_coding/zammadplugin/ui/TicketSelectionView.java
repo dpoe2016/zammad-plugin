@@ -110,7 +110,8 @@ public class TicketSelectionView implements Disposable {
                 if (e.getClickCount() == 2) {
                     Ticket selectedTicket = ticketList.getSelectedValue();
                     if (selectedTicket != null) {
-                        createBranchForTicket(selectedTicket);
+                        // createBranchForTicket(selectedTicket);
+                        openTicketInBrowser(selectedTicket);
                     }
                 }
             }

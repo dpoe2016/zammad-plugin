@@ -15,7 +15,9 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 public final class ZammadService {
     private ZammadApi zammadApi;
     private final PropertiesComponent propertiesComponent = PropertiesComponent.getInstance();
+    // Cache for user information to avoid unnecessary API calls
+    private final Map<Integer, User> userCache = new HashMap<>();
 
     private static final String ZAMMAD_URL_KEY = "de.dp_coding.zammadplugin.zammadUrl";
     private static final String ZAMMAD_TOKEN_KEY = "de.dp_coding.zammadplugin.zammadToken";
@@ -231,6 +235,12 @@ public final class ZammadService {
      * @throws IllegalStateException If the service is not configured or the API client is not initialized
      */
     public User getUserById(int userId) throws IOException {
+        // Check cache first
+        User cachedUser = userCache.get(userId);
+        if (cachedUser != null) {
+            return cachedUser;
+        }
+
         if (!isConfigured()) {
             throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
@@ -252,7 +262,22 @@ public final class ZammadService {
             throw new IllegalStateException("Failed to fetch user: " + errorBody);
         }
 
-        return response.body();
+        User user = response.body();
+
+        // Cache the user for future requests
+        if (user != null) {
+            userCache.put(userId, user);
+        }
+
+        return user;
+    }
+
+    /**
+     * Clear the user cache.
+     * This can be useful in scenarios where you want to force a refresh of user data.
+     */
+    public void clearUserCache() {
+        userCache.clear();
     }
 
     private void createApiClient(String zammadUrl, String apiToken) {
