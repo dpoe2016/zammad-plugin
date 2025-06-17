@@ -1,6 +1,10 @@
 package de.dp_coding.zammadplugin.model;
 
 import java.util.Objects;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Represents a ticket from the Zammad ticketing system.
@@ -15,6 +19,10 @@ public class Ticket {
     private final String customer_id;
     private final String created_at;
     private final String updated_at;
+
+    // Cache for ticket tags to avoid unnecessary API calls
+    private static final Map<Integer, List<String>> tagCache = new HashMap<>();
+    private List<String> tags;
 
     public Ticket(int id, String title, String number, String state, String priority, 
                   String group, String customer, String created_at, String updated_at) {

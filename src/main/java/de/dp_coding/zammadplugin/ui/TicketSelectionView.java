@@ -12,6 +12,7 @@ import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.ui.JBUI;
 import de.dp_coding.zammadplugin.api.ZammadService;
+import de.dp_coding.zammadplugin.model.Article;
 import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import git4idea.GitUtil;
@@ -278,8 +279,8 @@ public class TicketSelectionView implements Disposable {
         // Set up the split pane
         splitPane.setLeftComponent(new JBScrollPane(ticketList));
         splitPane.setRightComponent(ticketDetailsPanel);
-        splitPane.setDividerLocation(300);
-        splitPane.setResizeWeight(0.3);
+        splitPane.setDividerLocation(400);
+        splitPane.setResizeWeight(0.6);
 
         // Setup main panel
         mainPanel.add(topPanel, BorderLayout.NORTH);
@@ -412,6 +413,58 @@ public class TicketSelectionView implements Disposable {
         }
         html.append("</ul>");
         html.append("</div>");
+
+        // Add ticket articles section
+        try {
+            ZammadService zammadService = ZammadService.getInstance();
+            List<Article> articles = zammadService.getTicketArticles(ticket.getId());
+
+            if (!articles.isEmpty()) {
+                html.append("<div style='margin-top: 20px;'>");
+                html.append("<h3>Ticket Articles</h3>");
+
+                for (Article article : articles) {
+                    html.append("<div style='margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;'>");
+
+                    // Article header with metadata
+                    html.append("<div style='background-color: #f5f5f5; padding: 5px; margin-bottom: 10px;'>");
+                    html.append("<strong>From:</strong> ").append(article.getFrom()).append(" | ");
+                    html.append("<strong>Created:</strong> ").append(article.getCreatedAt()).append(" | ");
+                    if (article.getType() != null && !article.getType().isEmpty()) {
+                        html.append("<strong>Type:</strong> ").append(article.getType());
+                    }
+                    html.append("</div>");
+
+                    // Article subject if available
+                    if (article.getSubject() != null && !article.getSubject().isEmpty()) {
+                        html.append("<div style='font-weight: bold; margin-bottom: 5px;'>").append(article.getSubject()).append("</div>");
+                    }
+
+                    // Article body
+                    String body = article.getBody();
+                    if (body != null && !body.isEmpty()) {
+                        // If content type is HTML, use it directly, otherwise escape it
+                        if ("text/html".equals(article.getContentType())) {
+                            html.append("<div>").append(body).append("</div>");
+                        } else {
+                            // Replace newlines with <br> tags for plain text
+                            body = body.replace("\n", "<br>");
+                            html.append("<div>").append(body).append("</div>");
+                        }
+                    } else {
+                        html.append("<div><em>No content</em></div>");
+                    }
+
+                    html.append("</div>");
+                }
+
+                html.append("</div>");
+            }
+        } catch (IOException | IllegalStateException ex) {
+            html.append("<div style='margin-top: 20px; color: red;'>");
+            html.append("<p>Failed to load ticket articles: ").append(ex.getMessage()).append("</p>");
+            html.append("</div>");
+        }
 
         html.append("</body></html>");
 
