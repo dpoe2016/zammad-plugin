@@ -7,6 +7,7 @@ import com.intellij.openapi.components.Service;
 import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import de.dp_coding.zammadplugin.model.TimeAccountingRequest;
+import de.dp_coding.zammadplugin.model.User;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
@@ -161,6 +162,38 @@ public final class ZammadService {
         if (!response.isSuccessful()) {
             String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
             throw new IllegalStateException("Failed to create time accounting entry: " + errorBody);
+        }
+
+        return response.body();
+    }
+
+    /**
+     * Get the current authenticated user.
+     *
+     * @return The current user
+     * @throws IOException If there is an error communicating with the API
+     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     */
+    public User getCurrentUser() throws IOException {
+        if (!isConfigured()) {
+            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+        }
+
+        if (zammadApi == null) {
+            createApiClient(getZammadUrl(), getApiToken());
+        }
+
+        // Call the Zammad API to get the current user
+        if (zammadApi == null) {
+            throw new IllegalStateException("Zammad API client is not initialized.");
+        }
+
+        retrofit2.Call<User> call = zammadApi.getCurrentUser();
+        retrofit2.Response<User> response = call.execute();
+
+        if (!response.isSuccessful()) {
+            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            throw new IllegalStateException("Failed to fetch current user: " + errorBody);
         }
 
         return response.body();

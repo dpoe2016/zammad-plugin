@@ -3,6 +3,7 @@ package de.dp_coding.zammadplugin.api;
 import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import de.dp_coding.zammadplugin.model.TimeAccountingRequest;
+import de.dp_coding.zammadplugin.model.User;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
@@ -33,14 +34,20 @@ public interface ZammadApi {
     /**
      * Get time accounting entries for a specific ticket.
      */
-    @GET("api/v1/tickets/{ticketId}/time_accounting")
+    @GET("api/v1/tickets/{ticketId}/time_accountings")
     Call<List<TimeAccountingEntry>> getTimeAccountingEntries(@Path("ticketId") int ticketId);
 
     /**
      * Create a new time accounting entry for a ticket.
      */
-    @POST("api/v1/tickets/{ticketId}/time_accounting")
+    @POST("api/v1/tickets/{ticketId}/time_accountings")
     Call<TimeAccountingEntry> createTimeAccountingEntry(
         @Path("ticketId") int ticketId,
         @Body TimeAccountingRequest request);
+
+    /**
+     * Get the current authenticated user.
+     */
+    @GET("api/v1/users/me")
+    Call<User> getCurrentUser();
 }
