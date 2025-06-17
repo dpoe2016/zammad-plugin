@@ -22,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.DefaultListModel;
+import javax.swing.Timer;
 import java.awt.*;
 import java.io.IOException;
 import java.time.Duration;
@@ -47,6 +48,10 @@ public class TicketSelectionView {
     private Instant timeTrackingStartTime;
     private AnAction startTimeRecordingAction;
     private AnAction stopTimeRecordingAction;
+
+    // Timer components
+    private final JLabel timerLabel = new JLabel();
+    private Timer timer;
 
     public TicketSelectionView(Project project) {
         this.project = project;
@@ -207,8 +212,19 @@ public class TicketSelectionView {
                 "ZammadToolbar", actionGroup, true);
         toolbar.setTargetComponent(mainPanel);
 
+        // Setup timer label
+        timerLabel.setForeground(JBColor.BLUE);
+        timerLabel.setFont(timerLabel.getFont().deriveFont(Font.BOLD));
+        timerLabel.setBorder(JBUI.Borders.empty(0, 5));
+        timerLabel.setVisible(false);
+
+        // Create a panel for the toolbar and timer
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(toolbar.getComponent(), BorderLayout.CENTER);
+        topPanel.add(timerLabel, BorderLayout.EAST);
+
         // Setup main panel
-        mainPanel.add(toolbar.getComponent(), BorderLayout.NORTH);
+        mainPanel.add(topPanel, BorderLayout.NORTH);
         mainPanel.add(new JBScrollPane(ticketList), BorderLayout.CENTER);
         mainPanel.setBorder(JBUI.Borders.empty(5));
 
@@ -377,11 +393,52 @@ public class TicketSelectionView {
         activeTimeTrackingTicket = ticket;
         timeTrackingStartTime = Instant.now();
 
+        // Start the timer
+        startTimer();
+
         Messages.showInfoMessage(
             project,
             "Started recording time for ticket #" + ticket.getId() + ": " + ticket.getTitle(),
             "Time Recording Started"
         );
+    }
+
+    /**
+     * Starts the timer to update the elapsed time display.
+     */
+    private void startTimer() {
+        // Initialize the timer label
+        updateTimerDisplay();
+        timerLabel.setVisible(true);
+
+        // Create and start the timer (updates every second)
+        if (timer != null) {
+            timer.stop();
+        }
+
+        timer = new Timer(1000, e -> updateTimerDisplay());
+        timer.start();
+    }
+
+    /**
+     * Updates the timer display with the current elapsed time.
+     */
+    private void updateTimerDisplay() {
+        if (timeTrackingStartTime == null) {
+            return;
+        }
+
+        // Calculate elapsed time
+        Duration elapsed = Duration.between(timeTrackingStartTime, Instant.now());
+        long hours = elapsed.toHours();
+        long minutes = elapsed.toMinutesPart();
+        long seconds = elapsed.toSecondsPart();
+
+        // Format the elapsed time
+        String elapsedTimeStr = String.format("Recording: %02d:%02d:%02d", hours, minutes, seconds);
+
+        // Update the label
+        timerLabel.setText(elapsedTimeStr);
     }
 
     /**
@@ -405,6 +462,13 @@ public class TicketSelectionView {
 
         // Format the elapsed time
         String elapsedTimeStr = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+
+        // Stop the timer immediately to ensure it's stopped in all scenarios
+        if (timer != null) {
+            timer.stop();
+            timer = null;
+        }
+        timerLabel.setVisible(false);
 
         // Ask for a note
         String note = Messages.showInputDialog(
