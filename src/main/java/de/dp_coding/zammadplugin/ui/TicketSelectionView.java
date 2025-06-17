@@ -546,7 +546,7 @@ public class TicketSelectionView {
                     message.append("\nNote: ").append(entry.getNote());
                 }
 
-                message.append("\n\n");
+                message.append("\n");
             }
 
             // Show the time entries
