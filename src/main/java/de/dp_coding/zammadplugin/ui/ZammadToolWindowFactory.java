@@ -26,6 +26,8 @@ public class ZammadToolWindowFactory implements ToolWindowFactory {
                 ticketSelectionView.getContent(),
                 "Tickets",
                 false);
+        // Register the view as a disposable component
+        content.setDisposer(ticketSelectionView);
         toolWindow.getContentManager().addContent(content);
     }
 }

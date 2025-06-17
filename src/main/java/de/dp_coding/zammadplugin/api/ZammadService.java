@@ -134,6 +134,13 @@ public final class ZammadService {
 
         if (!response.isSuccessful()) {
             String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+
+            // Check for the specific "Time Accounting is not enabled" error
+            if (response.code() == 403 && errorBody.contains("Time Accounting is not enabled")) {
+                throw new IllegalStateException("Time Accounting is not enabled in your Zammad instance. " +
+                    "Please contact your Zammad administrator to enable this feature.");
+            }
+
             throw new IllegalStateException("Failed to fetch time accounting entries: " + errorBody);
         }
 
@@ -146,12 +153,11 @@ public final class ZammadService {
      *
      * @param ticketId The ID of the ticket to create a time entry for
      * @param time The time to record in the format "HH:MM:SS"
-     * @param note Optional note for the time entry
      * @return The created time accounting entry
      * @throws IOException If there is an error communicating with the API
      * @throws IllegalStateException If the service is not configured or the API client is not initialized
      */
-    public TimeAccountingEntry createTimeAccountingEntry(int ticketId, String time, String note) throws IOException {
+    public TimeAccountingEntry createTimeAccountingEntry(int ticketId, String time) throws IOException {
         if (!isConfigured()) {
             throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
@@ -165,12 +171,19 @@ public final class ZammadService {
             throw new IllegalStateException("Zammad API client is not initialized.");
         }
 
-        TimeAccountingRequest request = new TimeAccountingRequest(ticketId, time, note);
+        TimeAccountingRequest request = new TimeAccountingRequest(ticketId, time);
         retrofit2.Call<TimeAccountingEntry> call = zammadApi.createTimeAccountingEntry(ticketId, request);
         retrofit2.Response<TimeAccountingEntry> response = call.execute();
 
         if (!response.isSuccessful()) {
             String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+
+            // Check for the specific "Time Accounting is not enabled" error
+            if (response.code() == 403 && errorBody.contains("Time Accounting is not enabled")) {
+                throw new IllegalStateException("Time Accounting is not enabled in your Zammad instance. " +
+                    "Please contact your Zammad administrator to enable this feature.");
+            }
+
             throw new IllegalStateException("Failed to create time accounting entry: " + errorBody);
         }
 
@@ -217,7 +230,7 @@ public final class ZammadService {
             .addInterceptor(loggingInterceptor)
             .addInterceptor(chain -> {
                 okhttp3.Request request = chain.request().newBuilder()
-                    .addHeader("Authorization", "Token token=" + apiToken)
+                    .addHeader("Authorization", "Bearer " + apiToken)
                     .build();
                 return chain.proceed(request);
             })
