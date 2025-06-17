@@ -65,6 +65,7 @@ public class Ticket {
         return updated_at;
     }
 
+
     @Override
     public String toString() {
         return "#" + id + ": " + title;

@@ -56,7 +56,7 @@ public class TicketSelectionView {
                 boolean hasFocus
             ) {
                 if (value != null) {
-                    append("#" + value.getNumber() + ": ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES);
+                    append("#" + value.getId() + ": ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES);
                     append(value.getTitle(), SimpleTextAttributes.REGULAR_ATTRIBUTES);
                     append(" (" + value.getState() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
                 }
