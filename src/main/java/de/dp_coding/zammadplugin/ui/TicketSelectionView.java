@@ -316,6 +316,8 @@ public class TicketSelectionView implements Disposable {
 
         try {
             List<Ticket> tickets = zammadService.getTicketsForCurrentUser();
+            // Sort tickets by ID in descending order
+            Collections.sort(tickets, (t1, t2) -> Integer.compare(t2.getId(), t1.getId()));
             for (Ticket ticket : tickets) {
                 model.addElement(ticket);
             }
