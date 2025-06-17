@@ -85,7 +85,17 @@ public final class ZammadService {
             throw new IllegalStateException("Zammad API client is not initialized.");
         }
 
-        retrofit2.Call<List<Ticket>> call = zammadApi.getTicketsForCurrentUser();
+        retrofit2.Call<User> currentUserCall = zammadApi.getCurrentUser();
+        retrofit2.Response<User> currentUserResponse = currentUserCall.execute();
+
+        if (!currentUserResponse.isSuccessful()) {
+            String errorBody = currentUserResponse.errorBody() != null ? currentUserResponse.errorBody().string() : "Unknown error";
+            throw new IllegalStateException("Failed to fetch current user: " + errorBody);
+        }
+
+        User user = currentUserResponse.body();
+
+        retrofit2.Call<List<Ticket>> call = zammadApi.getTicketsForCurrentUser(user.getId());
         retrofit2.Response<List<Ticket>> response = call.execute();
 
         if (!response.isSuccessful()) {

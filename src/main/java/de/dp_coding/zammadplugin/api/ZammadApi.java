@@ -21,8 +21,8 @@ public interface ZammadApi {
      * Get open tickets assigned to the current user with default query "state_id:4".
      */
     @GET("api/v1/tickets/search")
-    default Call<List<Ticket>> getTicketsForCurrentUser() {
-        return getTicketsForCurrentUser("state_id:4");
+    default Call<List<Ticket>> getTicketsForCurrentUser(int userId) {
+        return getTicketsForCurrentUser("(state_id:4 OR state_id:1) AND owner_id:" + userId);
     }
 
     /**
