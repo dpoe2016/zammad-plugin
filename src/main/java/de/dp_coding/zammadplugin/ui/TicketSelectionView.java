@@ -24,6 +24,10 @@ import com.intellij.openapi.Disposable;
 import javax.swing.*;
 import javax.swing.DefaultListModel;
 import javax.swing.Timer;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.io.IOException;
 import java.time.Duration;
@@ -42,6 +46,11 @@ public class TicketSelectionView implements Disposable {
     private final DefaultListModel<Ticket> model = new DefaultListModel<>();
     private final JPanel mainPanel = new JPanel(new BorderLayout());
     private Consumer<Ticket> ticketSelectedCallback;
+
+    // Split pane components
+    private final JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+    private final JPanel ticketDetailsPanel = new JPanel(new BorderLayout());
+    private final JTextPane ticketDetailsTextPane = new JTextPane();
 
     // Time tracking variables
     private Ticket activeTimeTrackingTicket;
@@ -237,10 +246,56 @@ public class TicketSelectionView implements Disposable {
         topPanel.add(toolbar.getComponent(), BorderLayout.CENTER);
         topPanel.add(timerLabel, BorderLayout.EAST);
 
+        // Setup ticket details panel
+        ticketDetailsTextPane.setEditable(false);
+        ticketDetailsTextPane.setContentType("text/html");
+        ticketDetailsTextPane.setBorder(JBUI.Borders.empty(10));
+        ticketDetailsPanel.add(new JBScrollPane(ticketDetailsTextPane), BorderLayout.CENTER);
+
+        // Add hyperlink listener to handle action links
+        ticketDetailsTextPane.addHyperlinkListener(new HyperlinkListener() {
+            @Override
+            public void hyperlinkUpdate(HyperlinkEvent e) {
+                if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                    String url = e.getDescription();
+                    Ticket selectedTicket = ticketList.getSelectedValue();
+
+                    if (selectedTicket != null) {
+                        if ("action:open".equals(url)) {
+                            openTicketInBrowser(selectedTicket);
+                        } else if ("action:branch".equals(url)) {
+                            createBranchForTicket(selectedTicket);
+                        } else if ("action:startTime".equals(url)) {
+                            startTimeRecording(selectedTicket);
+                        } else if ("action:stopTime".equals(url)) {
+                            stopTimeRecording();
+                        }
+                    }
+                }
+            }
+        });
+
+        // Set up the split pane
+        splitPane.setLeftComponent(new JBScrollPane(ticketList));
+        splitPane.setRightComponent(ticketDetailsPanel);
+        splitPane.setDividerLocation(300);
+        splitPane.setResizeWeight(0.3);
+
         // Setup main panel
         mainPanel.add(topPanel, BorderLayout.NORTH);
-        mainPanel.add(new JBScrollPane(ticketList), BorderLayout.CENTER);
+        mainPanel.add(splitPane, BorderLayout.CENTER);
         mainPanel.setBorder(JBUI.Borders.empty(5));
+
+        // Add selection listener to update details panel
+        ticketList.addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) {
+                    Ticket selectedTicket = ticketList.getSelectedValue();
+                    updateTicketDetails(selectedTicket);
+                }
+            }
+        });
 
         // Load tickets initially
         loadTickets();
@@ -264,6 +319,9 @@ public class TicketSelectionView implements Disposable {
                 model.addElement(ticket);
             }
             ticketList.setSelectedIndex(tickets.isEmpty() ? -1 : 0);
+
+            // Update details panel for the initially selected ticket
+            updateTicketDetails(ticketList.getSelectedValue());
         } catch (IOException ex) {
             Messages.showErrorDialog(
                 project,
@@ -286,6 +344,81 @@ public class TicketSelectionView implements Disposable {
      */
     public void setTicketSelectedCallback(@NotNull Consumer<Ticket> callback) {
         this.ticketSelectedCallback = callback;
+    }
+
+    /**
+     * Updates the ticket details panel with information from the selected ticket.
+     *
+     * @param ticket The selected ticket, or null if no ticket is selected
+     */
+    private void updateTicketDetails(@Nullable Ticket ticket) {
+        if (ticket == null) {
+            ticketDetailsTextPane.setText("<html><body><p>No ticket selected</p></body></html>");
+            return;
+        }
+
+        // Call the callback if set
+        if (ticketSelectedCallback != null) {
+            ticketSelectedCallback.accept(ticket);
+        }
+
+        // Get customer name
+        String customerName = getCustomerName(ticket);
+        if (customerName == null || customerName.isEmpty()) {
+            customerName = "Unknown";
+        }
+
+        // Format ticket details as HTML
+        StringBuilder html = new StringBuilder();
+        html.append("<html><body style='font-family: Arial, sans-serif;'>");
+
+        // Ticket header
+        html.append("<h2>Ticket #").append(ticket.getId()).append("</h2>");
+        html.append("<h3>").append(ticket.getTitle()).append("</h3>");
+
+        // Ticket details table
+        html.append("<table style='width: 100%; border-collapse: collapse;'>");
+
+        // Status and priority
+        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Status:</td><td style='padding: 5px;'>")
+            .append(ticket.getState_id()).append("</td></tr>");
+        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Priority:</td><td style='padding: 5px;'>")
+            .append(ticket.getPriority()).append("</td></tr>");
+
+        // Customer and group
+        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Customer:</td><td style='padding: 5px;'>")
+            .append(customerName).append("</td></tr>");
+        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Group:</td><td style='padding: 5px;'>")
+            .append(ticket.getGroup()).append("</td></tr>");
+
+        // Dates
+        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Created:</td><td style='padding: 5px;'>")
+            .append(ticket.getCreated_at()).append("</td></tr>");
+        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Updated:</td><td style='padding: 5px;'>")
+            .append(ticket.getUpdated_at()).append("</td></tr>");
+
+        html.append("</table>");
+
+        // Actions section
+        html.append("<div style='margin-top: 20px; padding: 10px; background-color: #f5f5f5;'>");
+        html.append("<p><b>Actions:</b></p>");
+        html.append("<ul>");
+        html.append("<li><a href='action:open'>Open in Browser</a></li>");
+        html.append("<li><a href='action:branch'>Create Git Branch</a></li>");
+        if (activeTimeTrackingTicket == null) {
+            html.append("<li><a href='action:startTime'>Start Time Recording</a></li>");
+        } else if (activeTimeTrackingTicket.equals(ticket)) {
+            html.append("<li><a href='action:stopTime'>Stop Time Recording</a></li>");
+        }
+        html.append("</ul>");
+        html.append("</div>");
+
+        html.append("</body></html>");
+
+        ticketDetailsTextPane.setText(html.toString());
+
+        // Scroll to the top
+        ticketDetailsTextPane.setCaretPosition(0);
     }
 
     /**
