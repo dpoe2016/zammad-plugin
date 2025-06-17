@@ -19,6 +19,7 @@ import git4idea.branch.GitBrancher;
 import git4idea.repo.GitRepository;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.intellij.openapi.Disposable;
 
 import javax.swing.*;
 import javax.swing.DefaultListModel;
@@ -36,7 +37,7 @@ import java.util.regex.Pattern;
 /**
  * View for selecting a Zammad ticket.
  */
-public class TicketSelectionView {
+public class TicketSelectionView implements Disposable {
     private final JBList<Ticket> ticketList = new JBList<>();
     private final Project project;
     private final DefaultListModel<Ticket> model = new DefaultListModel<>();
@@ -281,6 +282,50 @@ public class TicketSelectionView {
      */
     public JComponent getContent() {
         return mainPanel;
+    }
+
+    /**
+     * Disposes of this component. If there's an active time recording, it will be stopped
+     * and the time will be posted to Zammad.
+     */
+    @Override
+    public void dispose() {
+        if (activeTimeTrackingTicket != null && timeTrackingStartTime != null) {
+            // Calculate elapsed time
+            Duration elapsed = Duration.between(timeTrackingStartTime, Instant.now());
+            long hours = elapsed.toHours();
+            long minutes = elapsed.toMinutesPart();
+            long seconds = elapsed.toSecondsPart();
+
+            // Format the elapsed time
+            String elapsedTimeStr = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+
+            // Stop the timer immediately to ensure it's stopped in all scenarios
+            if (timer != null) {
+                timer.stop();
+                timer = null;
+            }
+
+            // Send the time entry to Zammad
+            ZammadService zammadService = ZammadService.getInstance();
+            try {
+                // Use a default note for automatic time entries
+                String note = "Automatically recorded time when IDE was closed";
+
+                zammadService.createTimeAccountingEntry(
+                    activeTimeTrackingTicket.getId(),
+                    elapsedTimeStr,
+                    note
+                );
+
+                // Reset the state
+                activeTimeTrackingTicket = null;
+                timeTrackingStartTime = null;
+            } catch (IOException ex) {
+                // Log the error but don't show a dialog as the IDE might be shutting down
+                System.err.println("Failed to record time: " + ex.getMessage());
+            }
+        }
     }
 
     /**
