@@ -9,10 +9,10 @@ public class Ticket {
     private final int id;
     private final String title;
     private final String number;
-    private final String state;
+    private final String state_id;
     private final String priority;
     private final String group;
-    private final String customer;
+    private final String customer_id;
     private final String created_at;
     private final String updated_at;
 
@@ -21,10 +21,10 @@ public class Ticket {
         this.id = id;
         this.title = title;
         this.number = number;
-        this.state = state;
+        this.state_id = state;
         this.priority = priority;
         this.group = group;
-        this.customer = customer;
+        this.customer_id = customer;
         this.created_at = created_at;
         this.updated_at = updated_at;
     }
@@ -41,8 +41,8 @@ public class Ticket {
         return number;
     }
 
-    public String getState() {
-        return state;
+    public String getState_id() {
+        return state_id;
     }
 
     public String getPriority() {
@@ -53,8 +53,8 @@ public class Ticket {
         return group;
     }
 
-    public String getCustomer() {
-        return customer;
+    public String getCustomer_id() {
+        return customer_id;
     }
 
     public String getCreated_at() {
@@ -79,16 +79,16 @@ public class Ticket {
         return id == ticket.id &&
                 Objects.equals(title, ticket.title) &&
                 Objects.equals(number, ticket.number) &&
-                Objects.equals(state, ticket.state) &&
+                Objects.equals(state_id, ticket.state_id) &&
                 Objects.equals(priority, ticket.priority) &&
                 Objects.equals(group, ticket.group) &&
-                Objects.equals(customer, ticket.customer) &&
+                Objects.equals(customer_id, ticket.customer_id) &&
                 Objects.equals(created_at, ticket.created_at) &&
                 Objects.equals(updated_at, ticket.updated_at);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, title, number, state, priority, group, customer, created_at, updated_at);
+        return Objects.hash(id, title, number, state_id, priority, group, customer_id, created_at, updated_at);
     }
 }

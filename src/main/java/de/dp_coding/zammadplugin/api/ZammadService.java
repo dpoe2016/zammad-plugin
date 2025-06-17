@@ -222,6 +222,39 @@ public final class ZammadService {
         return response.body();
     }
 
+    /**
+     * Get a user by ID.
+     *
+     * @param userId The ID of the user to get
+     * @return The user with the specified ID
+     * @throws IOException If there is an error communicating with the API
+     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     */
+    public User getUserById(int userId) throws IOException {
+        if (!isConfigured()) {
+            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+        }
+
+        if (zammadApi == null) {
+            createApiClient(getZammadUrl(), getApiToken());
+        }
+
+        // Call the Zammad API to get the user by ID
+        if (zammadApi == null) {
+            throw new IllegalStateException("Zammad API client is not initialized.");
+        }
+
+        retrofit2.Call<User> call = zammadApi.getUserById(userId);
+        retrofit2.Response<User> response = call.execute();
+
+        if (!response.isSuccessful()) {
+            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            throw new IllegalStateException("Failed to fetch user: " + errorBody);
+        }
+
+        return response.body();
+    }
+
     private void createApiClient(String zammadUrl, String apiToken) {
         HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor();
         loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);

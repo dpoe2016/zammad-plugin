@@ -50,4 +50,10 @@ public interface ZammadApi {
      */
     @GET("api/v1/users/me")
     Call<User> getCurrentUser();
+
+    /**
+     * Get a user by ID.
+     */
+    @GET("api/v1/users/{userId}")
+    Call<User> getUserById(@Path("userId") int userId);
 }

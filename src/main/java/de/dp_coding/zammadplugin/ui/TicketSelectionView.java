@@ -28,7 +28,6 @@ import java.awt.*;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
@@ -80,12 +79,25 @@ public class TicketSelectionView implements Disposable {
                         setBackground(new JBColor(new Color(230, 240, 255), new Color(45, 55, 70)));
                         append("#" + value.getId() + ": ", new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
                         append(value.getTitle(), new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
-                        append(" (" + value.getState() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                        append(" (" + value.getState_id() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+
+                        // Add customer name if available
+                        String customerInfo = getCustomerName(value);
+                        if (customerInfo != null && !customerInfo.isEmpty()) {
+                            append(" - " + customerInfo, SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                        }
+
                         append(" [RECORDING TIME]", new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, JBColor.BLUE));
                     } else {
                         append("#" + value.getId() + ": ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES);
                         append(value.getTitle(), SimpleTextAttributes.REGULAR_ATTRIBUTES);
-                        append(" (" + value.getState() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                        append(" (" + value.getState_id() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+
+                        // Add customer name if available
+                        String customerInfo = getCustomerName(value);
+                        if (customerInfo != null && !customerInfo.isEmpty()) {
+                            append(" - " + customerInfo, SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                        }
                     }
                 }
             }
@@ -379,6 +391,41 @@ public class TicketSelectionView implements Disposable {
     private GitRepository getGitRepository(Project project) {
         List<GitRepository> repositories = GitUtil.getRepositoryManager(project).getRepositories();
         return repositories.isEmpty() ? null : repositories.get(0);
+    }
+
+    /**
+     * Gets the customer name for a ticket.
+     * 
+     * @param ticket The ticket to get the customer name for
+     * @return The customer name, or the customer ID if the name couldn't be retrieved
+     */
+    private String getCustomerName(Ticket ticket) {
+        String customerId = ticket.getCustomer_id();
+        if (customerId == null || customerId.isEmpty()) {
+            return "";
+        }
+
+        try {
+            // Check if the customer field is a numeric ID
+            int userId = Integer.parseInt(customerId);
+
+            // Get the user information from the API
+            ZammadService zammadService = ZammadService.getInstance();
+            try {
+                de.dp_coding.zammadplugin.model.User user = zammadService.getUserById(userId);
+                if (user != null) {
+                    return user.getFullName();
+                }
+            } catch (IOException | IllegalStateException e) {
+                // If there's an error, just return the customer ID
+                System.err.println("Failed to get customer name: " + e.getMessage());
+            }
+        } catch (NumberFormatException e) {
+            // If the customer field is not a numeric ID, just return it as is
+            return customerId;
+        }
+
+        return customerId;
     }
 
     /**
