@@ -171,7 +171,7 @@ public final class ZammadService {
             throw new IllegalStateException("Zammad API client is not initialized.");
         }
 
-        TimeAccountingRequest request = new TimeAccountingRequest(time);
+        TimeAccountingRequest request = new TimeAccountingRequest(ticketId, time);
         retrofit2.Call<TimeAccountingEntry> call = zammadApi.createTimeAccountingEntry(ticketId, request);
         retrofit2.Response<TimeAccountingEntry> response = call.execute();
 
@@ -230,7 +230,7 @@ public final class ZammadService {
             .addInterceptor(loggingInterceptor)
             .addInterceptor(chain -> {
                 okhttp3.Request request = chain.request().newBuilder()
-                    .addHeader("Authorization", "Token token=" + apiToken)
+                    .addHeader("Authorization", "Bearer " + apiToken)
                     .build();
                 return chain.proceed(request);
             })
