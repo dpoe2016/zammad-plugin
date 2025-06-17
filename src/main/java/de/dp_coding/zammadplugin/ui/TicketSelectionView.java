@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.ui.ColoredListCellRenderer;
+import com.intellij.ui.JBColor;
 import com.intellij.ui.SimpleTextAttributes;
 import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
@@ -22,6 +23,8 @@ import javax.swing.*;
 import javax.swing.DefaultListModel;
 import java.awt.*;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -37,6 +40,12 @@ public class TicketSelectionView {
     private final DefaultListModel<Ticket> model = new DefaultListModel<>();
     private final JPanel mainPanel = new JPanel(new BorderLayout());
     private Consumer<Ticket> ticketSelectedCallback;
+
+    // Time tracking variables
+    private Ticket activeTimeTrackingTicket;
+    private Instant timeTrackingStartTime;
+    private AnAction startTimeRecordingAction;
+    private AnAction stopTimeRecordingAction;
 
     public TicketSelectionView(Project project) {
         this.project = project;
@@ -56,9 +65,21 @@ public class TicketSelectionView {
                 boolean hasFocus
             ) {
                 if (value != null) {
-                    append("#" + value.getId() + ": ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES);
-                    append(value.getTitle(), SimpleTextAttributes.REGULAR_ATTRIBUTES);
-                    append(" (" + value.getState() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                    // Check if this ticket has active time recording
+                    boolean isTimeRecordingActive = value.equals(activeTimeTrackingTicket);
+
+                    // Use different style for tickets with active time recording
+                    if (isTimeRecordingActive) {
+                        setBackground(new JBColor(new Color(230, 240, 255), new Color(45, 55, 70)));
+                        append("#" + value.getId() + ": ", new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
+                        append(value.getTitle(), new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
+                        append(" (" + value.getState() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                        append(" [RECORDING TIME]", new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, JBColor.BLUE));
+                    } else {
+                        append("#" + value.getId() + ": ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES);
+                        append(value.getTitle(), SimpleTextAttributes.REGULAR_ATTRIBUTES);
+                        append(" (" + value.getState() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                    }
                 }
             }
         });
@@ -131,6 +152,42 @@ public class TicketSelectionView {
                 dialog.show();
             }
         });
+
+        // Add separator before time tracking actions
+        actionGroup.addSeparator();
+
+        // Add start time recording action
+        startTimeRecordingAction = new AnAction("Start Time Recording", "Start recording time for the selected ticket", AllIcons.Actions.Execute) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                Ticket selectedTicket = ticketList.getSelectedValue();
+                if (selectedTicket != null) {
+                    startTimeRecording(selectedTicket);
+                } else {
+                    Messages.showInfoMessage(project, "Please select a ticket first", "No Ticket Selected");
+                }
+            }
+
+            @Override
+            public void update(@NotNull AnActionEvent e) {
+                e.getPresentation().setEnabled(ticketList.getSelectedValue() != null && activeTimeTrackingTicket == null);
+            }
+        };
+        actionGroup.add(startTimeRecordingAction);
+
+        // Add stop time recording action
+        stopTimeRecordingAction = new AnAction("Stop Time Recording", "Stop recording time for the active ticket", AllIcons.Actions.Suspend) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                stopTimeRecording();
+            }
+
+            @Override
+            public void update(@NotNull AnActionEvent e) {
+                e.getPresentation().setEnabled(activeTimeTrackingTicket != null);
+            }
+        };
+        actionGroup.add(stopTimeRecordingAction);
 
         ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar(
                 "ZammadToolbar", actionGroup, true);
@@ -276,5 +333,75 @@ public class TicketSelectionView {
 
         // Open the URL in the browser
         BrowserUtil.browse(ticketUrl);
+    }
+
+    /**
+     * Starts recording time for the given ticket.
+     *
+     * @param ticket The ticket to record time for
+     */
+    private void startTimeRecording(Ticket ticket) {
+        if (activeTimeTrackingTicket != null) {
+            // Already recording time for another ticket
+            int result = Messages.showYesNoDialog(
+                project,
+                "You are already recording time for ticket #" + activeTimeTrackingTicket.getId() + 
+                ". Do you want to stop that and start recording for ticket #" + ticket.getId() + "?",
+                "Time Recording Already Active",
+                Messages.getQuestionIcon()
+            );
+
+            if (result != Messages.YES) {
+                return;
+            }
+
+            // Stop current recording
+            stopTimeRecording();
+        }
+
+        // Start recording time for the new ticket
+        activeTimeTrackingTicket = ticket;
+        timeTrackingStartTime = Instant.now();
+
+        Messages.showInfoMessage(
+            project,
+            "Started recording time for ticket #" + ticket.getId() + ": " + ticket.getTitle(),
+            "Time Recording Started"
+        );
+    }
+
+    /**
+     * Stops recording time for the active ticket.
+     */
+    private void stopTimeRecording() {
+        if (activeTimeTrackingTicket == null || timeTrackingStartTime == null) {
+            Messages.showWarningDialog(
+                project,
+                "No active time recording found.",
+                "No Time Recording"
+            );
+            return;
+        }
+
+        // Calculate elapsed time
+        Duration elapsed = Duration.between(timeTrackingStartTime, Instant.now());
+        long hours = elapsed.toHours();
+        long minutes = elapsed.toMinutesPart();
+        long seconds = elapsed.toSecondsPart();
+
+        // Format the elapsed time
+        String elapsedTimeStr = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+
+        // Show the result
+        Messages.showInfoMessage(
+            project,
+            "Recorded " + elapsedTimeStr + " for ticket #" + activeTimeTrackingTicket.getId() + 
+            ": " + activeTimeTrackingTicket.getTitle(),
+            "Time Recording Stopped"
+        );
+
+        // Reset the state
+        activeTimeTrackingTicket = null;
+        timeTrackingStartTime = null;
     }
 }
