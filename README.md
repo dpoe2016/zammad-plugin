@@ -10,6 +10,8 @@ This plugin integrates with the Zammad ticketing system to create Git branches f
 - Open tickets directly in your web browser
 - Access settings directly from the tool window
 - Seamless integration with Git
+- View time accounting entries for tickets
+- Record time spent working on tickets
 
 ## Requirements
 
@@ -59,6 +61,9 @@ Before using the plugin, you need to configure your Zammad API connection:
    - Click the "Open in Browser" button to view the selected ticket in your web browser
    - Click the "Settings" button to configure your Zammad API connection
    - Click the "Refresh" button to update the ticket list
+   - Click the "Start Time Recording" button to start recording time for the selected ticket
+   - Click the "Stop Time Recording" button to stop recording time and save the entry to Zammad
+   - Click the "Show Time Entries" button to view all time accounting entries for the selected ticket
 
 Alternatively, you can access the tool window from VCS → Zammad → Show Zammad Tickets
 

@@ -18,12 +18,15 @@ build/
 .idea/httpRequests/
 .idea/dataSources/
 .idea/dataSources.local.xml
+.idea/**
+.intellijPlatform/**
 *.iws
 *.iml
 *.ipr
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+.kotlin/**
 
 ### Eclipse ###
 .apt_generated

@@ -13,6 +13,7 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.ui.JBUI;
 import de.dp_coding.zammadplugin.api.ZammadService;
 import de.dp_coding.zammadplugin.model.Ticket;
+import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import git4idea.GitUtil;
 import git4idea.branch.GitBrancher;
 import git4idea.repo.GitRepository;
@@ -188,6 +189,19 @@ public class TicketSelectionView {
             }
         };
         actionGroup.add(stopTimeRecordingAction);
+
+        // Add show time entries action
+        actionGroup.add(new AnAction("Show Time Entries", "Show time accounting entries for the selected ticket", AllIcons.General.ShowInfos) {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e) {
+                showTimeAccountingEntries();
+            }
+
+            @Override
+            public void update(@NotNull AnActionEvent e) {
+                e.getPresentation().setEnabled(ticketList.getSelectedValue() != null);
+            }
+        });
 
         ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar(
                 "ZammadToolbar", actionGroup, true);
@@ -371,7 +385,7 @@ public class TicketSelectionView {
     }
 
     /**
-     * Stops recording time for the active ticket.
+     * Stops recording time for the active ticket and sends the time entry to Zammad.
      */
     private void stopTimeRecording() {
         if (activeTimeTrackingTicket == null || timeTrackingStartTime == null) {
@@ -392,16 +406,97 @@ public class TicketSelectionView {
         // Format the elapsed time
         String elapsedTimeStr = String.format("%02d:%02d:%02d", hours, minutes, seconds);
 
-        // Show the result
-        Messages.showInfoMessage(
+        // Ask for a note
+        String note = Messages.showInputDialog(
             project,
-            "Recorded " + elapsedTimeStr + " for ticket #" + activeTimeTrackingTicket.getId() + 
-            ": " + activeTimeTrackingTicket.getTitle(),
-            "Time Recording Stopped"
+            "Enter a note for this time entry (optional):",
+            "Time Entry Note",
+            Messages.getQuestionIcon()
         );
 
-        // Reset the state
-        activeTimeTrackingTicket = null;
-        timeTrackingStartTime = null;
+        // Send the time entry to Zammad
+        ZammadService zammadService = ZammadService.getInstance();
+        try {
+            TimeAccountingEntry entry = zammadService.createTimeAccountingEntry(
+                activeTimeTrackingTicket.getId(),
+                elapsedTimeStr,
+                note
+            );
+
+            // Show success message
+            Messages.showInfoMessage(
+                project,
+                "Recorded " + elapsedTimeStr + " for ticket #" + activeTimeTrackingTicket.getId() + 
+                ": " + activeTimeTrackingTicket.getTitle(),
+                "Time Recording Stopped"
+            );
+
+            // Reset the state
+            activeTimeTrackingTicket = null;
+            timeTrackingStartTime = null;
+
+            // Refresh the ticket list to show updated time entries
+            loadTickets();
+        } catch (IOException ex) {
+            Messages.showErrorDialog(
+                project,
+                "Failed to record time: " + ex.getMessage(),
+                "Error"
+            );
+        }
+    }
+
+    /**
+     * Shows time accounting entries for the selected ticket.
+     */
+    private void showTimeAccountingEntries() {
+        Ticket selectedTicket = ticketList.getSelectedValue();
+        if (selectedTicket == null) {
+            Messages.showInfoMessage(project, "Please select a ticket first", "No Ticket Selected");
+            return;
+        }
+
+        ZammadService zammadService = ZammadService.getInstance();
+        try {
+            List<TimeAccountingEntry> entries = zammadService.getTimeAccountingEntries(selectedTicket.getId());
+
+            if (entries.isEmpty()) {
+                Messages.showInfoMessage(
+                    project,
+                    "No time entries found for ticket #" + selectedTicket.getId() + ": " + selectedTicket.getTitle(),
+                    "No Time Entries"
+                );
+                return;
+            }
+
+            // Build a message with all time entries
+            StringBuilder message = new StringBuilder();
+            message.append("Time entries for ticket #").append(selectedTicket.getId())
+                  .append(": ").append(selectedTicket.getTitle()).append("\n\n");
+
+            for (TimeAccountingEntry entry : entries) {
+                message.append("Time: ").append(entry.getTime())
+                      .append(", Created: ").append(entry.getCreatedAt());
+
+                if (entry.getNote() != null && !entry.getNote().isEmpty()) {
+                    message.append("\nNote: ").append(entry.getNote());
+                }
+
+                message.append("\n\n");
+            }
+
+            // Show the time entries
+            Messages.showInfoMessage(
+                project,
+                message.toString(),
+                "Time Entries"
+            );
+        } catch (IOException ex) {
+            Messages.showErrorDialog(
+                project,
+                "Failed to fetch time entries: " + ex.getMessage(),
+                "Error"
+            );
+        }
     }
 }

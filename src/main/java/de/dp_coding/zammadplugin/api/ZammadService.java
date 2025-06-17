@@ -5,6 +5,8 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
 import de.dp_coding.zammadplugin.model.Ticket;
+import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
+import de.dp_coding.zammadplugin.model.TimeAccountingRequest;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
@@ -81,7 +83,7 @@ public final class ZammadService {
         if (zammadApi == null) {
             throw new IllegalStateException("Zammad API client is not initialized.");
         }
-        
+
         retrofit2.Call<List<Ticket>> call = zammadApi.getTicketsForCurrentUser();
         retrofit2.Response<List<Ticket>> response = call.execute();
 
@@ -92,6 +94,76 @@ public final class ZammadService {
 
         List<Ticket> body = response.body();
         return body != null ? body : Collections.emptyList();
+    }
+
+    /**
+     * Get time accounting entries for a specific ticket.
+     *
+     * @param ticketId The ID of the ticket to get time entries for
+     * @return List of time accounting entries for the ticket
+     * @throws IOException If there is an error communicating with the API
+     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     */
+    public List<TimeAccountingEntry> getTimeAccountingEntries(int ticketId) throws IOException {
+        if (!isConfigured()) {
+            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+        }
+
+        if (zammadApi == null) {
+            createApiClient(getZammadUrl(), getApiToken());
+        }
+
+        // Call the Zammad API to get time accounting entries for the ticket
+        if (zammadApi == null) {
+            throw new IllegalStateException("Zammad API client is not initialized.");
+        }
+
+        retrofit2.Call<List<TimeAccountingEntry>> call = zammadApi.getTimeAccountingEntries(ticketId);
+        retrofit2.Response<List<TimeAccountingEntry>> response = call.execute();
+
+        if (!response.isSuccessful()) {
+            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            throw new IllegalStateException("Failed to fetch time accounting entries: " + errorBody);
+        }
+
+        List<TimeAccountingEntry> body = response.body();
+        return body != null ? body : Collections.emptyList();
+    }
+
+    /**
+     * Create a new time accounting entry for a ticket.
+     *
+     * @param ticketId The ID of the ticket to create a time entry for
+     * @param time The time to record in the format "HH:MM:SS"
+     * @param note Optional note for the time entry
+     * @return The created time accounting entry
+     * @throws IOException If there is an error communicating with the API
+     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     */
+    public TimeAccountingEntry createTimeAccountingEntry(int ticketId, String time, String note) throws IOException {
+        if (!isConfigured()) {
+            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+        }
+
+        if (zammadApi == null) {
+            createApiClient(getZammadUrl(), getApiToken());
+        }
+
+        // Call the Zammad API to create a time accounting entry
+        if (zammadApi == null) {
+            throw new IllegalStateException("Zammad API client is not initialized.");
+        }
+
+        TimeAccountingRequest request = new TimeAccountingRequest(ticketId, time, note);
+        retrofit2.Call<TimeAccountingEntry> call = zammadApi.createTimeAccountingEntry(ticketId, request);
+        retrofit2.Response<TimeAccountingEntry> response = call.execute();
+
+        if (!response.isSuccessful()) {
+            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            throw new IllegalStateException("Failed to create time accounting entry: " + errorBody);
+        }
+
+        return response.body();
     }
 
     private void createApiClient(String zammadUrl, String apiToken) {

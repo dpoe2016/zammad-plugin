@@ -13,11 +13,13 @@
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description><![CDATA[
-    This plugin integrates with Zammad ticketing system to create Git branches for tickets.<br>
+    This plugin integrates with Zammad ticketing system to create Git branches for tickets and manage time accounting.<br>
     <ul>
       <li>View open tickets from your Zammad instance</li>
       <li>Select a ticket to create a feature branch</li>
       <li>Automatically formats branch names based on ticket ID and title</li>
+      <li>View time accounting entries for tickets</li>
+      <li>Record time spent working on tickets</li>
     </ul>
   ]]></description>
 
