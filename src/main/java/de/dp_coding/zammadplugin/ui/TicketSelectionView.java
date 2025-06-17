@@ -314,8 +314,7 @@ public class TicketSelectionView implements Disposable {
 
                 zammadService.createTimeAccountingEntry(
                     activeTimeTrackingTicket.getId(),
-                    elapsedTimeStr,
-                    note
+                    elapsedTimeStr
                 );
 
                 // Reset the state
@@ -516,20 +515,19 @@ public class TicketSelectionView implements Disposable {
         timerLabel.setVisible(false);
 
         // Ask for a note
-        String note = Messages.showInputDialog(
-            project,
-            "Enter a note for this time entry (optional):",
-            "Time Entry Note",
-            Messages.getQuestionIcon()
-        );
+//        String note = Messages.showInputDialog(
+//            project,
+//            "Enter a note for this time entry (optional):",
+//            "Time Entry Note",
+//            Messages.getQuestionIcon()
+//        );
 
         // Send the time entry to Zammad
         ZammadService zammadService = ZammadService.getInstance();
         try {
             TimeAccountingEntry entry = zammadService.createTimeAccountingEntry(
                 activeTimeTrackingTicket.getId(),
-                elapsedTimeStr,
-                note
+                elapsedTimeStr
             );
 
             // Show success message
@@ -546,7 +544,7 @@ public class TicketSelectionView implements Disposable {
 
             // Refresh the ticket list to show updated time entries
             loadTickets();
-        } catch (IOException ex) {
+        } catch (IOException | IllegalStateException ex) {
             Messages.showErrorDialog(
                 project,
                 "Failed to record time: " + ex.getMessage(),
@@ -600,7 +598,7 @@ public class TicketSelectionView implements Disposable {
                 message.toString(),
                 "Time Entries"
             );
-        } catch (IOException ex) {
+        } catch (IOException | IllegalStateException ex) {
             Messages.showErrorDialog(
                 project,
                 "Failed to fetch time entries: " + ex.getMessage(),
