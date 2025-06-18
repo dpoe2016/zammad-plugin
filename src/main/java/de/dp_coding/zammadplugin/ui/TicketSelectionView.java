@@ -2,6 +2,7 @@ package de.dp_coding.zammadplugin.ui;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.ide.BrowserUtil;
@@ -12,6 +13,11 @@ import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.ui.JBUI;
 import de.dp_coding.zammadplugin.api.ZammadService;
+import de.dp_coding.zammadplugin.exception.ApiException;
+import de.dp_coding.zammadplugin.exception.ConfigurationException;
+import de.dp_coding.zammadplugin.exception.ErrorHandler;
+import de.dp_coding.zammadplugin.exception.FeatureNotEnabledException;
+import de.dp_coding.zammadplugin.exception.ZammadException;
 import de.dp_coding.zammadplugin.model.Article;
 import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
@@ -42,6 +48,8 @@ import java.util.regex.Pattern;
  * View for selecting a Zammad ticket.
  */
 public class TicketSelectionView implements Disposable {
+    private static final Logger LOG = Logger.getInstance(TicketSelectionView.class);
+
     private final JBList<Ticket> ticketList = new JBList<>();
     private final Project project;
     private final DefaultListModel<Ticket> model = new DefaultListModel<>();
@@ -301,28 +309,30 @@ public class TicketSelectionView implements Disposable {
         }
 
         try {
+            LOG.info("Loading tickets from Zammad");
             List<Ticket> tickets = zammadService.getTicketsForCurrentUser();
             // Sort tickets by ID in descending order
             Collections.sort(tickets, (t1, t2) -> Integer.compare(t2.getId(), t1.getId()));
             for (Ticket ticket : tickets) {
                 model.addElement(ticket);
             }
+            LOG.info("Loaded " + tickets.size() + " tickets");
             ticketList.setSelectedIndex(tickets.isEmpty() ? -1 : 0);
 
             // Update details panel for the initially selected ticket
             updateTicketDetails(ticketList.getSelectedValue());
-        } catch (IOException ex) {
-            Messages.showErrorDialog(
-                project,
-                "Failed to fetch tickets: " + ex.getMessage(),
-                "Error"
-            );
+        } catch (ConfigurationException ex) {
+            LOG.warn("Configuration error while loading tickets", ex);
+            ErrorHandler.handleException(project, ex, "Configuration Error");
+        } catch (ApiException ex) {
+            LOG.warn("API error while loading tickets", ex);
+            ErrorHandler.handleException(project, ex, "API Error");
+        } catch (ZammadException ex) {
+            LOG.warn("Error while loading tickets", ex);
+            ErrorHandler.handleException(project, ex, "Error");
         } catch (Exception ex) {
-            Messages.showErrorDialog(
-                project,
-                "An unexpected error occurred: " + ex.getMessage(),
-                "Error"
-            );
+            LOG.warn("Unexpected error while loading tickets", ex);
+            ErrorHandler.handleException(project, ex, "Unexpected Error");
         }
     }
 
@@ -389,6 +399,7 @@ public class TicketSelectionView implements Disposable {
                 // Use a default note for automatic time entries
                 String note = "Automatically recorded time when IDE was closed";
 
+                LOG.info("Recording time for ticket ID: " + activeTimeTrackingTicket.getId() + " with time: " + elapsedTimeStr);
                 zammadService.createTimeAccountingEntry(
                     activeTimeTrackingTicket.getId(),
                     elapsedTimeStr
@@ -397,9 +408,11 @@ public class TicketSelectionView implements Disposable {
                 // Reset the state
                 activeTimeTrackingTicket = null;
                 timeTrackingStartTime = null;
-            } catch (IOException ex) {
+                LOG.info("Time recording stopped and saved");
+            } catch (ZammadException ex) {
                 // Log the error but don't show a dialog as the IDE might be shutting down
-                System.err.println("Failed to record time: " + ex.getMessage());
+                LOG.warn("Failed to record time: " + ex.getMessage(), ex);
+                ErrorHandler.handleExceptionSilently(ex, "Time recording on dispose");
             }
         }
     }
@@ -477,16 +490,28 @@ public class TicketSelectionView implements Disposable {
             // Get the user information from the API
             ZammadService zammadService = ZammadService.getInstance();
             try {
+                LOG.info("Fetching customer name for user ID: " + userId);
                 de.dp_coding.zammadplugin.model.User user = zammadService.getUserById(userId);
                 if (user != null) {
+                    LOG.info("Found customer name: " + user.getFullName());
                     return user.getFullName();
                 }
-            } catch (IOException | IllegalStateException e) {
+            } catch (ConfigurationException ex) {
                 // If there's an error, just return the customer ID
-                System.err.println("Failed to get customer name: " + e.getMessage());
+                LOG.warn("Configuration error while fetching customer name", ex);
+                // Don't show error dialog for customer name as it's not critical
+            } catch (ApiException ex) {
+                // If there's an error, just return the customer ID
+                LOG.warn("API error while fetching customer name", ex);
+                // Don't show error dialog for customer name as it's not critical
+            } catch (ZammadException ex) {
+                // If there's an error, just return the customer ID
+                LOG.warn("Error while fetching customer name", ex);
+                // Don't show error dialog for customer name as it's not critical
             }
         } catch (NumberFormatException e) {
             // If the customer field is not a numeric ID, just return it as is
+            LOG.info("Customer ID is not a numeric ID: " + customerId);
             return customerId;
         }
 
@@ -637,12 +662,14 @@ public class TicketSelectionView implements Disposable {
         // Send the time entry to Zammad
         ZammadService zammadService = ZammadService.getInstance();
         try {
+            LOG.info("Recording time for ticket ID: " + activeTimeTrackingTicket.getId() + " with time: " + elapsedTimeStr);
             TimeAccountingEntry entry = zammadService.createTimeAccountingEntry(
                 activeTimeTrackingTicket.getId(),
                 elapsedTimeStr
             );
 
             // Show success message
+            LOG.info("Time recording stopped and saved");
             Messages.showInfoMessage(
                 project,
                 "Recorded " + elapsedTimeStr + " for ticket #" + activeTimeTrackingTicket.getId() + 
@@ -656,12 +683,18 @@ public class TicketSelectionView implements Disposable {
 
             // Refresh the ticket list to show updated time entries
             loadTickets();
-        } catch (IOException | IllegalStateException ex) {
-            Messages.showErrorDialog(
-                project,
-                "Failed to record time: " + ex.getMessage(),
-                "Error"
-            );
+        } catch (ConfigurationException ex) {
+            LOG.warn("Configuration error while recording time", ex);
+            ErrorHandler.handleException(project, ex, "Configuration Error");
+        } catch (FeatureNotEnabledException ex) {
+            LOG.warn("Feature not enabled error while recording time", ex);
+            ErrorHandler.handleException(project, ex, "Feature Not Enabled");
+        } catch (ApiException ex) {
+            LOG.warn("API error while recording time", ex);
+            ErrorHandler.handleException(project, ex, "API Error");
+        } catch (ZammadException ex) {
+            LOG.warn("Error while recording time", ex);
+            ErrorHandler.handleException(project, ex, "Error");
         }
     }
 
@@ -677,9 +710,11 @@ public class TicketSelectionView implements Disposable {
 
         ZammadService zammadService = ZammadService.getInstance();
         try {
+            LOG.info("Fetching time accounting entries for ticket ID: " + selectedTicket.getId());
             List<TimeAccountingEntry> entries = zammadService.getTimeAccountingEntries(selectedTicket.getId());
 
             if (entries.isEmpty()) {
+                LOG.info("No time entries found for ticket ID: " + selectedTicket.getId());
                 Messages.showInfoMessage(
                     project,
                     "No time entries found for ticket #" + selectedTicket.getId() + ": " + selectedTicket.getTitle(),
@@ -704,18 +739,25 @@ public class TicketSelectionView implements Disposable {
                 message.append("\n");
             }
 
+            LOG.info("Showing " + entries.size() + " time entries for ticket ID: " + selectedTicket.getId());
             // Show the time entries
             Messages.showInfoMessage(
                 project,
                 message.toString(),
                 "Time Entries"
             );
-        } catch (IOException | IllegalStateException ex) {
-            Messages.showErrorDialog(
-                project,
-                "Failed to fetch time entries: " + ex.getMessage(),
-                "Error"
-            );
+        } catch (ConfigurationException ex) {
+            LOG.warn("Configuration error while fetching time entries", ex);
+            ErrorHandler.handleException(project, ex, "Configuration Error");
+        } catch (FeatureNotEnabledException ex) {
+            LOG.warn("Feature not enabled error while fetching time entries", ex);
+            ErrorHandler.handleException(project, ex, "Feature Not Enabled");
+        } catch (ApiException ex) {
+            LOG.warn("API error while fetching time entries", ex);
+            ErrorHandler.handleException(project, ex, "API Error");
+        } catch (ZammadException ex) {
+            LOG.warn("Error while fetching time entries", ex);
+            ErrorHandler.handleException(project, ex, "Error");
         }
     }
 }
