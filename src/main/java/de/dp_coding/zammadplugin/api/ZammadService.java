@@ -353,40 +353,48 @@ public final class ZammadService {
      * @throws IllegalStateException If the service is not configured or the API client is not initialized
      */
     public List<Article> getTicketArticles(int ticketId) throws IOException {
-        // Check cache first
-        List<Article> cachedArticles = articleCache.get(ticketId);
-        if (cachedArticles != null) {
-            return cachedArticles;
-        }
 
-        if (!isConfigured()) {
-            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
-        }
+        List<Article> articles = null;
 
-        if (zammadApi == null) {
-            createApiClient(getZammadUrl(), getApiToken());
-        }
+        try {
 
-        // Call the Zammad API to get the articles for the ticket
-        if (zammadApi == null) {
-            throw new IllegalStateException("Zammad API client is not initialized.");
-        }
+            // Check cache first
+            List<Article> cachedArticles = articleCache.get(ticketId);
+            if (cachedArticles != null) {
+                return cachedArticles;
+            }
 
-        retrofit2.Call<List<Article>> call = zammadApi.getTicketArticles(ticketId);
-        retrofit2.Response<List<Article>> response = call.execute();
+            if (!isConfigured()) {
+                throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+            }
 
-        if (!response.isSuccessful()) {
-            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
-            throw new IllegalStateException("Failed to fetch ticket articles: " + errorBody);
-        }
+            if (zammadApi == null) {
+                createApiClient(getZammadUrl(), getApiToken());
+            }
 
-        List<Article> articles = response.body();
+            // Call the Zammad API to get the articles for the ticket
+            if (zammadApi == null) {
+                throw new IllegalStateException("Zammad API client is not initialized.");
+            }
 
-        // Cache the articles for future requests
-        if (articles != null) {
-            articleCache.put(ticketId, articles);
-        } else {
-            articles = Collections.emptyList();
+            retrofit2.Call<List<Article>> call = zammadApi.getTicketArticles(ticketId);
+            retrofit2.Response<List<Article>> response = call.execute();
+
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                throw new IllegalStateException("Failed to fetch ticket articles: " + errorBody);
+            }
+
+            articles = response.body();
+
+            // Cache the articles for future requests
+            if (articles != null) {
+                articleCache.put(ticketId, articles);
+            } else {
+                articles = Collections.emptyList();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
 
         return articles;

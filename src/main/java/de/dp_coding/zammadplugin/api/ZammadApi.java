@@ -24,7 +24,7 @@ public interface ZammadApi {
      */
     @GET("api/v1/tickets/search")
     default Call<List<Ticket>> getTicketsForCurrentUser(int userId) {
-        return getTicketsForCurrentUser("(state_id:4 OR state_id:1) AND owner_id:" + userId);
+        return getTicketsForCurrentUser("(state_id:4 OR state_id:1 OR state_id:10) AND owner_id:" + userId);
     }
 
     /**

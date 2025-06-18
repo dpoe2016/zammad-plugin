@@ -63,6 +63,7 @@ public class TicketSelectionView implements Disposable {
     private final JLabel timerLabel = new JLabel();
     private Timer timer;
 
+
     public TicketSelectionView(Project project) {
         this.project = project;
 
@@ -222,6 +223,7 @@ public class TicketSelectionView implements Disposable {
             }
         });
 
+
         ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar(
                 "ZammadToolbar", actionGroup, true);
         toolbar.setTargetComponent(mainPanel);
@@ -266,15 +268,9 @@ public class TicketSelectionView implements Disposable {
             }
         });
 
-        // Set up the split pane
-        splitPane.setLeftComponent(new JBScrollPane(ticketList));
-        splitPane.setRightComponent(ticketDetailsPanel);
-        splitPane.setDividerLocation(400);
-        splitPane.setResizeWeight(0.6);
-
-        // Setup main panel
+        // Setup main panel with just the ticket list (no split pane)
         mainPanel.add(topPanel, BorderLayout.NORTH);
-        mainPanel.add(splitPane, BorderLayout.CENTER);
+        mainPanel.add(new JBScrollPane(ticketList), BorderLayout.CENTER);
         mainPanel.setBorder(JBUI.Borders.empty(5));
 
         // Add selection listener to update details panel
@@ -340,13 +336,13 @@ public class TicketSelectionView implements Disposable {
     }
 
     /**
-     * Updates the ticket details panel with information from the selected ticket.
+     * Handles ticket selection. Since we no longer show ticket details,
+     * this method only calls the callback if set.
      *
      * @param ticket The selected ticket, or null if no ticket is selected
      */
     private void updateTicketDetails(@Nullable Ticket ticket) {
         if (ticket == null) {
-            ticketDetailsTextPane.setText("<html><body><p>No ticket selected</p></body></html>");
             return;
         }
 
@@ -354,116 +350,6 @@ public class TicketSelectionView implements Disposable {
         if (ticketSelectedCallback != null) {
             ticketSelectedCallback.accept(ticket);
         }
-
-        // Get customer name
-        String customerName = getCustomerName(ticket);
-        if (customerName == null || customerName.isEmpty()) {
-            customerName = "Unknown";
-        }
-
-        // Format ticket details as HTML
-        StringBuilder html = new StringBuilder();
-        html.append("<html><body style='font-family: Arial, sans-serif;'>");
-
-        // Ticket header
-        html.append("<h2>Ticket #").append(ticket.getId()).append("</h2>");
-        html.append("<h3>").append(ticket.getTitle()).append("</h3>");
-
-        // Ticket details table
-        html.append("<table style='width: 100%; border-collapse: collapse;'>");
-
-        // Status and priority
-        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Status:</td><td style='padding: 5px;'>")
-            .append(ticket.getState_id()).append("</td></tr>");
-        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Priority:</td><td style='padding: 5px;'>")
-            .append(ticket.getPriority()).append("</td></tr>");
-
-        // Customer and group
-        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Customer:</td><td style='padding: 5px;'>")
-            .append(customerName).append("</td></tr>");
-        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Group:</td><td style='padding: 5px;'>")
-            .append(ticket.getGroup()).append("</td></tr>");
-
-        // Dates
-        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Created:</td><td style='padding: 5px;'>")
-            .append(ticket.getCreated_at()).append("</td></tr>");
-        html.append("<tr><td style='font-weight: bold; padding: 5px;'>Updated:</td><td style='padding: 5px;'>")
-            .append(ticket.getUpdated_at()).append("</td></tr>");
-
-        html.append("</table>");
-
-        // Actions section
-        html.append("<div style='margin-top: 20px; padding: 10px; background-color: #f5f5f5;'>");
-        html.append("<p><b>Actions:</b></p>");
-        html.append("<ul>");
-        html.append("<li><a href='action:open'>Open in Browser</a></li>");
-        html.append("<li><a href='action:branch'>Create Git Branch</a></li>");
-        if (activeTimeTrackingTicket == null) {
-            html.append("<li><a href='action:startTime'>Start Time Recording</a></li>");
-        } else if (activeTimeTrackingTicket.equals(ticket)) {
-            html.append("<li><a href='action:stopTime'>Stop Time Recording</a></li>");
-        }
-        html.append("</ul>");
-        html.append("</div>");
-
-        // Add ticket articles section
-        try {
-            ZammadService zammadService = ZammadService.getInstance();
-            List<Article> articles = zammadService.getTicketArticles(ticket.getId());
-
-            if (!articles.isEmpty()) {
-                html.append("<div style='margin-top: 20px;'>");
-                html.append("<h3>Ticket Articles</h3>");
-
-                for (Article article : articles) {
-                    html.append("<div style='margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;'>");
-
-                    // Article header with metadata
-                    html.append("<div style='background-color: #f5f5f5; padding: 5px; margin-bottom: 10px;'>");
-                    html.append("<strong>From:</strong> ").append(article.getFrom()).append(" | ");
-                    html.append("<strong>Created:</strong> ").append(article.getCreatedAt()).append(" | ");
-                    if (article.getType() != null && !article.getType().isEmpty()) {
-                        html.append("<strong>Type:</strong> ").append(article.getType());
-                    }
-                    html.append("</div>");
-
-                    // Article subject if available
-                    if (article.getSubject() != null && !article.getSubject().isEmpty()) {
-                        html.append("<div style='font-weight: bold; margin-bottom: 5px;'>").append(article.getSubject()).append("</div>");
-                    }
-
-                    // Article body
-                    String body = article.getBody();
-                    if (body != null && !body.isEmpty()) {
-                        // If content type is HTML, use it directly, otherwise escape it
-                        if ("text/html".equals(article.getContentType())) {
-                            html.append("<div>").append(body).append("</div>");
-                        } else {
-                            // Replace newlines with <br> tags for plain text
-                            body = body.replace("\n", "<br>");
-                            html.append("<div>").append(body).append("</div>");
-                        }
-                    } else {
-                        html.append("<div><em>No content</em></div>");
-                    }
-
-                    html.append("</div>");
-                }
-
-                html.append("</div>");
-            }
-        } catch (IOException | IllegalStateException ex) {
-            html.append("<div style='margin-top: 20px; color: red;'>");
-            html.append("<p>Failed to load ticket articles: ").append(ex.getMessage()).append("</p>");
-            html.append("</div>");
-        }
-
-        html.append("</body></html>");
-
-        ticketDetailsTextPane.setText(html.toString());
-
-        // Scroll to the top
-        ticketDetailsTextPane.setCaretPosition(0);
     }
 
     /**
