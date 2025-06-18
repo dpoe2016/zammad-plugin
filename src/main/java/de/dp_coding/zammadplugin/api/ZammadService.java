@@ -4,6 +4,11 @@ import com.google.gson.GsonBuilder;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
+import com.intellij.openapi.diagnostic.Logger;
+import de.dp_coding.zammadplugin.exception.ApiException;
+import de.dp_coding.zammadplugin.exception.ConfigurationException;
+import de.dp_coding.zammadplugin.exception.FeatureNotEnabledException;
+import de.dp_coding.zammadplugin.exception.ZammadException;
 import de.dp_coding.zammadplugin.model.Article;
 import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
@@ -27,6 +32,8 @@ import java.util.ArrayList;
  */
 @Service
 public final class ZammadService {
+    private static final Logger LOG = Logger.getInstance(ZammadService.class);
+
     private ZammadApi zammadApi;
     private final PropertiesComponent propertiesComponent = PropertiesComponent.getInstance();
     // Cache for user information to avoid unnecessary API calls
@@ -80,10 +87,16 @@ public final class ZammadService {
 
     /**
      * Get tickets assigned to the current user.
+     *
+     * @return List of tickets assigned to the current user
+     * @throws ConfigurationException If the service is not configured
+     * @throws ApiException If there is an error communicating with the API
+     * @throws ZammadException If there is another error
      */
-    public List<Ticket> getTicketsForCurrentUser() throws IOException {
+    public List<Ticket> getTicketsForCurrentUser() throws ZammadException {
         if (!isConfigured()) {
-            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+            LOG.warn("Zammad service is not configured");
+            throw new ConfigurationException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
 
         if (zammadApi == null) {
@@ -92,29 +105,44 @@ public final class ZammadService {
 
         // Call the Zammad API to get tickets for the current user
         if (zammadApi == null) {
-            throw new IllegalStateException("Zammad API client is not initialized.");
+            LOG.warn("Zammad API client is not initialized");
+            throw new ConfigurationException("Zammad API client is not initialized.");
         }
 
-        retrofit2.Call<User> currentUserCall = zammadApi.getCurrentUser();
-        retrofit2.Response<User> currentUserResponse = currentUserCall.execute();
+        try {
+            LOG.info("Fetching current user");
+            retrofit2.Call<User> currentUserCall = zammadApi.getCurrentUser();
+            retrofit2.Response<User> currentUserResponse = currentUserCall.execute();
 
-        if (!currentUserResponse.isSuccessful()) {
-            String errorBody = currentUserResponse.errorBody() != null ? currentUserResponse.errorBody().string() : "Unknown error";
-            throw new IllegalStateException("Failed to fetch current user: " + errorBody);
+            if (!currentUserResponse.isSuccessful()) {
+                String errorBody = currentUserResponse.errorBody() != null ? currentUserResponse.errorBody().string() : "Unknown error";
+                LOG.warn("Failed to fetch current user: " + errorBody);
+                throw new ApiException("Failed to fetch current user: " + errorBody, currentUserResponse.code());
+            }
+
+            User user = currentUserResponse.body();
+            if (user == null) {
+                LOG.warn("Current user response body is null");
+                throw new ApiException("Failed to fetch current user: Response body is null");
+            }
+
+            LOG.info("Fetching tickets for user ID: " + user.getId());
+            retrofit2.Call<List<Ticket>> call = zammadApi.getTicketsForCurrentUser(user.getId());
+            retrofit2.Response<List<Ticket>> response = call.execute();
+
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                LOG.warn("Failed to fetch tickets: " + errorBody);
+                throw new ApiException("Failed to fetch tickets: " + errorBody, response.code());
+            }
+
+            List<Ticket> body = response.body();
+            LOG.info("Fetched " + (body != null ? body.size() : 0) + " tickets");
+            return body != null ? body : Collections.emptyList();
+        } catch (IOException e) {
+            LOG.warn("IO error while fetching tickets", e);
+            throw new ApiException("Network error while fetching tickets", e);
         }
-
-        User user = currentUserResponse.body();
-
-        retrofit2.Call<List<Ticket>> call = zammadApi.getTicketsForCurrentUser(user.getId());
-        retrofit2.Response<List<Ticket>> response = call.execute();
-
-        if (!response.isSuccessful()) {
-            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
-            throw new IllegalStateException("Failed to fetch tickets: " + errorBody);
-        }
-
-        List<Ticket> body = response.body();
-        return body != null ? body : Collections.emptyList();
     }
 
     /**
@@ -122,12 +150,15 @@ public final class ZammadService {
      *
      * @param ticketId The ID of the ticket to get time entries for
      * @return List of time accounting entries for the ticket
-     * @throws IOException If there is an error communicating with the API
-     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     * @throws ConfigurationException If the service is not configured
+     * @throws FeatureNotEnabledException If time accounting is not enabled in the Zammad instance
+     * @throws ApiException If there is an error communicating with the API
+     * @throws ZammadException If there is another error
      */
-    public List<TimeAccountingEntry> getTimeAccountingEntries(int ticketId) throws IOException {
+    public List<TimeAccountingEntry> getTimeAccountingEntries(int ticketId) throws ZammadException {
         if (!isConfigured()) {
-            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+            LOG.warn("Zammad service is not configured");
+            throw new ConfigurationException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
 
         if (zammadApi == null) {
@@ -136,26 +167,37 @@ public final class ZammadService {
 
         // Call the Zammad API to get time accounting entries for the ticket
         if (zammadApi == null) {
-            throw new IllegalStateException("Zammad API client is not initialized.");
+            LOG.warn("Zammad API client is not initialized");
+            throw new ConfigurationException("Zammad API client is not initialized.");
         }
 
-        retrofit2.Call<List<TimeAccountingEntry>> call = zammadApi.getTimeAccountingEntries(ticketId);
-        retrofit2.Response<List<TimeAccountingEntry>> response = call.execute();
+        try {
+            LOG.info("Fetching time accounting entries for ticket ID: " + ticketId);
+            retrofit2.Call<List<TimeAccountingEntry>> call = zammadApi.getTimeAccountingEntries(ticketId);
+            retrofit2.Response<List<TimeAccountingEntry>> response = call.execute();
 
-        if (!response.isSuccessful()) {
-            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
 
-            // Check for the specific "Time Accounting is not enabled" error
-            if (response.code() == 403 && errorBody.contains("Time Accounting is not enabled")) {
-                throw new IllegalStateException("Time Accounting is not enabled in your Zammad instance. " +
-                    "Please contact your Zammad administrator to enable this feature.");
+                // Check for the specific "Time Accounting is not enabled" error
+                if (response.code() == 403 && errorBody.contains("Time Accounting is not enabled")) {
+                    LOG.warn("Time Accounting is not enabled in the Zammad instance");
+                    throw new FeatureNotEnabledException("Time Accounting", 
+                        "Time Accounting is not enabled in your Zammad instance. " +
+                        "Please contact your Zammad administrator to enable this feature.");
+                }
+
+                LOG.warn("Failed to fetch time accounting entries: " + errorBody);
+                throw new ApiException("Failed to fetch time accounting entries: " + errorBody, response.code());
             }
 
-            throw new IllegalStateException("Failed to fetch time accounting entries: " + errorBody);
+            List<TimeAccountingEntry> body = response.body();
+            LOG.info("Fetched " + (body != null ? body.size() : 0) + " time accounting entries");
+            return body != null ? body : Collections.emptyList();
+        } catch (IOException e) {
+            LOG.warn("IO error while fetching time accounting entries", e);
+            throw new ApiException("Network error while fetching time accounting entries", e);
         }
-
-        List<TimeAccountingEntry> body = response.body();
-        return body != null ? body : Collections.emptyList();
     }
 
     /**
@@ -164,12 +206,15 @@ public final class ZammadService {
      * @param ticketId The ID of the ticket to create a time entry for
      * @param time The time to record in the format "HH:MM:SS"
      * @return The created time accounting entry
-     * @throws IOException If there is an error communicating with the API
-     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     * @throws ConfigurationException If the service is not configured
+     * @throws FeatureNotEnabledException If time accounting is not enabled in the Zammad instance
+     * @throws ApiException If there is an error communicating with the API
+     * @throws ZammadException If there is another error
      */
-    public TimeAccountingEntry createTimeAccountingEntry(int ticketId, String time) throws IOException {
+    public TimeAccountingEntry createTimeAccountingEntry(int ticketId, String time) throws ZammadException {
         if (!isConfigured()) {
-            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+            LOG.warn("Zammad service is not configured");
+            throw new ConfigurationException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
 
         if (zammadApi == null) {
@@ -178,38 +223,57 @@ public final class ZammadService {
 
         // Call the Zammad API to create a time accounting entry
         if (zammadApi == null) {
-            throw new IllegalStateException("Zammad API client is not initialized.");
+            LOG.warn("Zammad API client is not initialized");
+            throw new ConfigurationException("Zammad API client is not initialized.");
         }
 
-        TimeAccountingRequest request = new TimeAccountingRequest(ticketId, time);
-        retrofit2.Call<TimeAccountingEntry> call = zammadApi.createTimeAccountingEntry(ticketId, request);
-        retrofit2.Response<TimeAccountingEntry> response = call.execute();
+        try {
+            LOG.info("Creating time accounting entry for ticket ID: " + ticketId + " with time: " + time);
+            TimeAccountingRequest request = new TimeAccountingRequest(ticketId, time);
+            retrofit2.Call<TimeAccountingEntry> call = zammadApi.createTimeAccountingEntry(ticketId, request);
+            retrofit2.Response<TimeAccountingEntry> response = call.execute();
 
-        if (!response.isSuccessful()) {
-            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
 
-            // Check for the specific "Time Accounting is not enabled" error
-            if (response.code() == 403 && errorBody.contains("Time Accounting is not enabled")) {
-                throw new IllegalStateException("Time Accounting is not enabled in your Zammad instance. " +
-                    "Please contact your Zammad administrator to enable this feature.");
+                // Check for the specific "Time Accounting is not enabled" error
+                if (response.code() == 403 && errorBody.contains("Time Accounting is not enabled")) {
+                    LOG.warn("Time Accounting is not enabled in the Zammad instance");
+                    throw new FeatureNotEnabledException("Time Accounting", 
+                        "Time Accounting is not enabled in your Zammad instance. " +
+                        "Please contact your Zammad administrator to enable this feature.");
+                }
+
+                LOG.warn("Failed to create time accounting entry: " + errorBody);
+                throw new ApiException("Failed to create time accounting entry: " + errorBody, response.code());
             }
 
-            throw new IllegalStateException("Failed to create time accounting entry: " + errorBody);
-        }
+            TimeAccountingEntry entry = response.body();
+            if (entry == null) {
+                LOG.warn("Time accounting entry response body is null");
+                throw new ApiException("Failed to create time accounting entry: Response body is null");
+            }
 
-        return response.body();
+            LOG.info("Created time accounting entry with ID: " + entry.getId());
+            return entry;
+        } catch (IOException e) {
+            LOG.warn("IO error while creating time accounting entry", e);
+            throw new ApiException("Network error while creating time accounting entry", e);
+        }
     }
 
     /**
      * Get the current authenticated user.
      *
      * @return The current user
-     * @throws IOException If there is an error communicating with the API
-     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     * @throws ConfigurationException If the service is not configured
+     * @throws ApiException If there is an error communicating with the API
+     * @throws ZammadException If there is another error
      */
-    public User getCurrentUser() throws IOException {
+    public User getCurrentUser() throws ZammadException {
         if (!isConfigured()) {
-            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+            LOG.warn("Zammad service is not configured");
+            throw new ConfigurationException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
 
         if (zammadApi == null) {
@@ -218,18 +282,33 @@ public final class ZammadService {
 
         // Call the Zammad API to get the current user
         if (zammadApi == null) {
-            throw new IllegalStateException("Zammad API client is not initialized.");
+            LOG.warn("Zammad API client is not initialized");
+            throw new ConfigurationException("Zammad API client is not initialized.");
         }
 
-        retrofit2.Call<User> call = zammadApi.getCurrentUser();
-        retrofit2.Response<User> response = call.execute();
+        try {
+            LOG.info("Fetching current user");
+            retrofit2.Call<User> call = zammadApi.getCurrentUser();
+            retrofit2.Response<User> response = call.execute();
 
-        if (!response.isSuccessful()) {
-            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
-            throw new IllegalStateException("Failed to fetch current user: " + errorBody);
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                LOG.warn("Failed to fetch current user: " + errorBody);
+                throw new ApiException("Failed to fetch current user: " + errorBody, response.code());
+            }
+
+            User user = response.body();
+            if (user == null) {
+                LOG.warn("Current user response body is null");
+                throw new ApiException("Failed to fetch current user: Response body is null");
+            }
+
+            LOG.info("Fetched current user with ID: " + user.getId());
+            return user;
+        } catch (IOException e) {
+            LOG.warn("IO error while fetching current user", e);
+            throw new ApiException("Network error while fetching current user", e);
         }
-
-        return response.body();
     }
 
     /**
@@ -237,18 +316,21 @@ public final class ZammadService {
      *
      * @param userId The ID of the user to get
      * @return The user with the specified ID
-     * @throws IOException If there is an error communicating with the API
-     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     * @throws ConfigurationException If the service is not configured
+     * @throws ApiException If there is an error communicating with the API
+     * @throws ZammadException If there is another error
      */
-    public User getUserById(int userId) throws IOException {
+    public User getUserById(int userId) throws ZammadException {
         // Check cache first
         User cachedUser = userCache.get(userId);
         if (cachedUser != null) {
+            LOG.info("Using cached user for ID: " + userId);
             return cachedUser;
         }
 
         if (!isConfigured()) {
-            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+            LOG.warn("Zammad service is not configured");
+            throw new ConfigurationException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
 
         if (zammadApi == null) {
@@ -257,25 +339,36 @@ public final class ZammadService {
 
         // Call the Zammad API to get the user by ID
         if (zammadApi == null) {
-            throw new IllegalStateException("Zammad API client is not initialized.");
+            LOG.warn("Zammad API client is not initialized");
+            throw new ConfigurationException("Zammad API client is not initialized.");
         }
 
-        retrofit2.Call<User> call = zammadApi.getUserById(userId);
-        retrofit2.Response<User> response = call.execute();
+        try {
+            LOG.info("Fetching user with ID: " + userId);
+            retrofit2.Call<User> call = zammadApi.getUserById(userId);
+            retrofit2.Response<User> response = call.execute();
 
-        if (!response.isSuccessful()) {
-            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
-            throw new IllegalStateException("Failed to fetch user: " + errorBody);
-        }
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                LOG.warn("Failed to fetch user: " + errorBody);
+                throw new ApiException("Failed to fetch user: " + errorBody, response.code());
+            }
 
-        User user = response.body();
+            User user = response.body();
+            if (user == null) {
+                LOG.warn("User response body is null for ID: " + userId);
+                throw new ApiException("Failed to fetch user: Response body is null");
+            }
 
-        // Cache the user for future requests
-        if (user != null) {
+            // Cache the user for future requests
+            LOG.info("Caching user with ID: " + userId);
             userCache.put(userId, user);
-        }
 
-        return user;
+            return user;
+        } catch (IOException e) {
+            LOG.warn("IO error while fetching user with ID: " + userId, e);
+            throw new ApiException("Network error while fetching user", e);
+        }
     }
 
     /**
@@ -292,18 +385,21 @@ public final class ZammadService {
      *
      * @param ticketId The ID of the ticket to get tags for
      * @return List of tags for the ticket
-     * @throws IOException If there is an error communicating with the API
-     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     * @throws ConfigurationException If the service is not configured
+     * @throws ApiException If there is an error communicating with the API
+     * @throws ZammadException If there is another error
      */
-    public List<String> getTicketTags(int ticketId) throws IOException {
+    public List<String> getTicketTags(int ticketId) throws ZammadException {
         // Check cache first
         List<String> cachedTags = tagCache.get(ticketId);
         if (cachedTags != null) {
+            LOG.info("Using cached tags for ticket ID: " + ticketId);
             return cachedTags;
         }
 
         if (!isConfigured()) {
-            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+            LOG.warn("Zammad service is not configured");
+            throw new ConfigurationException("Zammad service is not configured. Please set the Zammad URL and API token.");
         }
 
         if (zammadApi == null) {
@@ -312,27 +408,37 @@ public final class ZammadService {
 
         // Call the Zammad API to get the tags for the ticket
         if (zammadApi == null) {
-            throw new IllegalStateException("Zammad API client is not initialized.");
+            LOG.warn("Zammad API client is not initialized");
+            throw new ConfigurationException("Zammad API client is not initialized.");
         }
 
-        retrofit2.Call<List<String>> call = zammadApi.getTicketTags(ticketId);
-        retrofit2.Response<List<String>> response = call.execute();
+        try {
+            LOG.info("Fetching tags for ticket ID: " + ticketId);
+            retrofit2.Call<List<String>> call = zammadApi.getTicketTags(ticketId);
+            retrofit2.Response<List<String>> response = call.execute();
 
-        if (!response.isSuccessful()) {
-            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
-            throw new IllegalStateException("Failed to fetch ticket tags: " + errorBody);
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+                LOG.warn("Failed to fetch ticket tags: " + errorBody);
+                throw new ApiException("Failed to fetch ticket tags: " + errorBody, response.code());
+            }
+
+            List<String> tags = response.body();
+
+            // Cache the tags for future requests
+            if (tags != null) {
+                LOG.info("Caching tags for ticket ID: " + ticketId + ", count: " + tags.size());
+                tagCache.put(ticketId, tags);
+            } else {
+                LOG.warn("Ticket tags response body is null for ticket ID: " + ticketId);
+                tags = Collections.emptyList();
+            }
+
+            return tags;
+        } catch (IOException e) {
+            LOG.warn("IO error while fetching tags for ticket ID: " + ticketId, e);
+            throw new ApiException("Network error while fetching ticket tags", e);
         }
-
-        List<String> tags = response.body();
-
-        // Cache the tags for future requests
-        if (tags != null) {
-            tagCache.put(ticketId, tags);
-        } else {
-            tags = Collections.emptyList();
-        }
-
-        return tags;
     }
 
     /**
@@ -349,55 +455,60 @@ public final class ZammadService {
      *
      * @param ticketId The ID of the ticket to get articles for
      * @return List of articles for the ticket
-     * @throws IOException If there is an error communicating with the API
-     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     * @throws ConfigurationException If the service is not configured
+     * @throws ApiException If there is an error communicating with the API
+     * @throws ZammadException If there is another error
      */
-    public List<Article> getTicketArticles(int ticketId) throws IOException {
+    public List<Article> getTicketArticles(int ticketId) throws ZammadException {
+        // Check cache first
+        List<Article> cachedArticles = articleCache.get(ticketId);
+        if (cachedArticles != null) {
+            LOG.info("Using cached articles for ticket ID: " + ticketId);
+            return cachedArticles;
+        }
 
-        List<Article> articles = null;
+        if (!isConfigured()) {
+            LOG.warn("Zammad service is not configured");
+            throw new ConfigurationException("Zammad service is not configured. Please set the Zammad URL and API token.");
+        }
+
+        if (zammadApi == null) {
+            createApiClient(getZammadUrl(), getApiToken());
+        }
+
+        // Call the Zammad API to get the articles for the ticket
+        if (zammadApi == null) {
+            LOG.warn("Zammad API client is not initialized");
+            throw new ConfigurationException("Zammad API client is not initialized.");
+        }
 
         try {
-
-            // Check cache first
-            List<Article> cachedArticles = articleCache.get(ticketId);
-            if (cachedArticles != null) {
-                return cachedArticles;
-            }
-
-            if (!isConfigured()) {
-                throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
-            }
-
-            if (zammadApi == null) {
-                createApiClient(getZammadUrl(), getApiToken());
-            }
-
-            // Call the Zammad API to get the articles for the ticket
-            if (zammadApi == null) {
-                throw new IllegalStateException("Zammad API client is not initialized.");
-            }
-
+            LOG.info("Fetching articles for ticket ID: " + ticketId);
             retrofit2.Call<List<Article>> call = zammadApi.getTicketArticles(ticketId);
             retrofit2.Response<List<Article>> response = call.execute();
 
             if (!response.isSuccessful()) {
                 String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
-                throw new IllegalStateException("Failed to fetch ticket articles: " + errorBody);
+                LOG.warn("Failed to fetch ticket articles: " + errorBody);
+                throw new ApiException("Failed to fetch ticket articles: " + errorBody, response.code());
             }
 
-            articles = response.body();
+            List<Article> articles = response.body();
 
             // Cache the articles for future requests
             if (articles != null) {
+                LOG.info("Caching articles for ticket ID: " + ticketId + ", count: " + articles.size());
                 articleCache.put(ticketId, articles);
             } else {
+                LOG.warn("Ticket articles response body is null for ticket ID: " + ticketId);
                 articles = Collections.emptyList();
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
 
-        return articles;
+            return articles;
+        } catch (IOException e) {
+            LOG.warn("IO error while fetching articles for ticket ID: " + ticketId, e);
+            throw new ApiException("Network error while fetching ticket articles", e);
+        }
     }
 
     /**
