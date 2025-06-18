@@ -85,29 +85,19 @@ public class TicketSelectionView implements Disposable {
                     boolean isTimeRecordingActive = value.equals(activeTimeTrackingTicket);
 
                     // Use different style for tickets with active time recording
+                    append("#" + value.getId() + ": ", new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
+                    append(value.getTitle(), new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
+                    append(" (" + value.getState_id() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+
+                    // Add customer name if available
+                    String customerInfo = getCustomerName(value);
+                    if (customerInfo != null && !customerInfo.isEmpty()) {
+                        append(" - " + customerInfo, SimpleTextAttributes.GRAYED_ATTRIBUTES);
+                    }
+
                     if (isTimeRecordingActive) {
                         setBackground(new JBColor(new Color(230, 240, 255), new Color(45, 55, 70)));
-                        append("#" + value.getId() + ": ", new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
-                        append(value.getTitle(), new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, null));
-                        append(" (" + value.getState_id() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
-
-                        // Add customer name if available
-                        String customerInfo = getCustomerName(value);
-                        if (customerInfo != null && !customerInfo.isEmpty()) {
-                            append(" - " + customerInfo, SimpleTextAttributes.GRAYED_ATTRIBUTES);
-                        }
-
                         append(" [RECORDING TIME]", new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, JBColor.BLUE));
-                    } else {
-                        append("#" + value.getId() + ": ", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES);
-                        append(value.getTitle(), SimpleTextAttributes.REGULAR_ATTRIBUTES);
-                        append(" (" + value.getState_id() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
-
-                        // Add customer name if available
-                        String customerInfo = getCustomerName(value);
-                        if (customerInfo != null && !customerInfo.isEmpty()) {
-                            append(" - " + customerInfo, SimpleTextAttributes.GRAYED_ATTRIBUTES);
-                        }
                     }
                 }
             }
