@@ -4,6 +4,7 @@ import com.google.gson.GsonBuilder;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
+import de.dp_coding.zammadplugin.model.Article;
 import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import de.dp_coding.zammadplugin.model.TimeAccountingRequest;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
 
 /**
  * Service for communicating with the Zammad API.
@@ -29,6 +31,10 @@ public final class ZammadService {
     private final PropertiesComponent propertiesComponent = PropertiesComponent.getInstance();
     // Cache for user information to avoid unnecessary API calls
     private final Map<Integer, User> userCache = new HashMap<>();
+    // Cache for ticket tags to avoid unnecessary API calls
+    private final Map<Integer, List<String>> tagCache = new HashMap<>();
+    // Cache for ticket articles to avoid unnecessary API calls
+    private final Map<Integer, List<Article>> articleCache = new HashMap<>();
 
     private static final String ZAMMAD_URL_KEY = "de.dp_coding.zammadplugin.zammadUrl";
     private static final String ZAMMAD_TOKEN_KEY = "de.dp_coding.zammadplugin.zammadToken";
@@ -278,6 +284,120 @@ public final class ZammadService {
      */
     public void clearUserCache() {
         userCache.clear();
+    }
+
+    /**
+     * Get tags for a specific ticket.
+     * This method uses a cache to avoid unnecessary API calls.
+     *
+     * @param ticketId The ID of the ticket to get tags for
+     * @return List of tags for the ticket
+     * @throws IOException If there is an error communicating with the API
+     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     */
+    public List<String> getTicketTags(int ticketId) throws IOException {
+        // Check cache first
+        List<String> cachedTags = tagCache.get(ticketId);
+        if (cachedTags != null) {
+            return cachedTags;
+        }
+
+        if (!isConfigured()) {
+            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+        }
+
+        if (zammadApi == null) {
+            createApiClient(getZammadUrl(), getApiToken());
+        }
+
+        // Call the Zammad API to get the tags for the ticket
+        if (zammadApi == null) {
+            throw new IllegalStateException("Zammad API client is not initialized.");
+        }
+
+        retrofit2.Call<List<String>> call = zammadApi.getTicketTags(ticketId);
+        retrofit2.Response<List<String>> response = call.execute();
+
+        if (!response.isSuccessful()) {
+            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            throw new IllegalStateException("Failed to fetch ticket tags: " + errorBody);
+        }
+
+        List<String> tags = response.body();
+
+        // Cache the tags for future requests
+        if (tags != null) {
+            tagCache.put(ticketId, tags);
+        } else {
+            tags = Collections.emptyList();
+        }
+
+        return tags;
+    }
+
+    /**
+     * Clear the tag cache.
+     * This can be useful in scenarios where you want to force a refresh of tag data.
+     */
+    public void clearTagCache() {
+        tagCache.clear();
+    }
+
+    /**
+     * Get articles (comments/messages) for a specific ticket.
+     * This method uses a cache to avoid unnecessary API calls.
+     *
+     * @param ticketId The ID of the ticket to get articles for
+     * @return List of articles for the ticket
+     * @throws IOException If there is an error communicating with the API
+     * @throws IllegalStateException If the service is not configured or the API client is not initialized
+     */
+    public List<Article> getTicketArticles(int ticketId) throws IOException {
+        // Check cache first
+        List<Article> cachedArticles = articleCache.get(ticketId);
+        if (cachedArticles != null) {
+            return cachedArticles;
+        }
+
+        if (!isConfigured()) {
+            throw new IllegalStateException("Zammad service is not configured. Please set the Zammad URL and API token.");
+        }
+
+        if (zammadApi == null) {
+            createApiClient(getZammadUrl(), getApiToken());
+        }
+
+        // Call the Zammad API to get the articles for the ticket
+        if (zammadApi == null) {
+            throw new IllegalStateException("Zammad API client is not initialized.");
+        }
+
+        retrofit2.Call<List<Article>> call = zammadApi.getTicketArticles(ticketId);
+        retrofit2.Response<List<Article>> response = call.execute();
+
+        if (!response.isSuccessful()) {
+            String errorBody = response.errorBody() != null ? response.errorBody().string() : "Unknown error";
+            throw new IllegalStateException("Failed to fetch ticket articles: " + errorBody);
+        }
+
+        List<Article> articles = response.body();
+
+        // Cache the articles for future requests
+        if (articles != null) {
+            articleCache.put(ticketId, articles);
+        } else {
+            articles = Collections.emptyList();
+        }
+
+        return articles;
+    }
+
+    /**
+     * Clear the article cache.
+     * This can be useful in scenarios where you want to force a refresh of article data.
+     */
+    public void clearArticleCache() {
+        articleCache.clear();
     }
 
     private void createApiClient(String zammadUrl, String apiToken) {

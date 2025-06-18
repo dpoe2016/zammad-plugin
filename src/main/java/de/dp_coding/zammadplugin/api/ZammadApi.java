@@ -1,5 +1,6 @@
 package de.dp_coding.zammadplugin.api;
 
+import de.dp_coding.zammadplugin.model.Article;
 import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import de.dp_coding.zammadplugin.model.TimeAccountingRequest;
@@ -12,6 +13,7 @@ import retrofit2.http.Path;
 import retrofit2.http.Query;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Retrofit interface for the Zammad API.
@@ -42,8 +44,8 @@ public interface ZammadApi {
      */
     @POST("api/v1/tickets/{ticketId}/time_accountings")
     Call<TimeAccountingEntry> createTimeAccountingEntry(
-        @Path("ticketId") int ticketId,
-        @Body TimeAccountingRequest request);
+            @Path("ticketId") int ticketId,
+            @Body TimeAccountingRequest request);
 
     /**
      * Get the current authenticated user.
@@ -56,4 +58,16 @@ public interface ZammadApi {
      */
     @GET("api/v1/users/{userId}")
     Call<User> getUserById(@Path("userId") int userId);
+
+    /**
+     * Get tags for a specific ticket.
+     */
+    @GET("api/v1/tickets/{ticketId}/tags")
+    Call<List<String>> getTicketTags(@Path("ticketId") int ticketId);
+
+    /**
+     * Get articles (comments/messages) for a specific ticket.
+     */
+    @GET("api/v1/ticket_articles/by_ticket/{ticketId}")
+    Call<List<Article>> getTicketArticles(@Path("ticketId") int ticketId);
 }
