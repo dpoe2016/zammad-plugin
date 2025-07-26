@@ -99,7 +99,7 @@ public class TicketSelectionView implements Disposable {
                     append(" (" + value.getState_id() + ")", SimpleTextAttributes.GRAYED_ATTRIBUTES);
 
                     // Add customer name if available
-                    String customerInfo = getCustomerName(value);
+                        String customerInfo = getCustomerName(value) + " (" + value.getOrganizationName() + ")";
                     if (customerInfo != null && !customerInfo.isEmpty()) {
                         append(" - " + customerInfo, SimpleTextAttributes.GRAYED_ATTRIBUTES);
                     }

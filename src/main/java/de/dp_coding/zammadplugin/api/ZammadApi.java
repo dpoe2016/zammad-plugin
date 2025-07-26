@@ -5,6 +5,7 @@ import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import de.dp_coding.zammadplugin.model.TimeAccountingRequest;
 import de.dp_coding.zammadplugin.model.User;
+import de.dp_coding.zammadplugin.model.Organization;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
@@ -70,4 +71,10 @@ public interface ZammadApi {
      */
     @GET("api/v1/ticket_articles/by_ticket/{ticketId}")
     Call<List<Article>> getTicketArticles(@Path("ticketId") int ticketId);
+
+    /**
+     * Get an organization by ID.
+     */
+    @GET("api/v1/organizations/{id}")
+    Call<Organization> getOrganizationById(@Path("id") int id);
 }

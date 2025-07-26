@@ -14,6 +14,7 @@ import de.dp_coding.zammadplugin.model.Ticket;
 import de.dp_coding.zammadplugin.model.TimeAccountingEntry;
 import de.dp_coding.zammadplugin.model.TimeAccountingRequest;
 import de.dp_coding.zammadplugin.model.User;
+import de.dp_coding.zammadplugin.model.Organization;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
@@ -137,6 +138,24 @@ public final class ZammadService {
             }
 
             List<Ticket> body = response.body();
+            if (body != null) {
+                for (Ticket ticket : body) {
+                    Integer orgId = ticket.getOrganizationId();
+                    if (orgId != null) {
+                        try {
+                            retrofit2.Call<Organization> orgCall = zammadApi.getOrganizationById(orgId);
+                            retrofit2.Response<Organization> orgResponse = orgCall.execute();
+                            if (orgResponse.isSuccessful() && orgResponse.body() != null) {
+                                ticket.setOrganizationName(orgResponse.body().getName());
+                            } else {
+                                ticket.setOrganizationName(null);
+                            }
+                        } catch (Exception e) {
+                            ticket.setOrganizationName(null);
+                        }
+                    }
+                }
+            }
             LOG.info("Fetched " + (body != null ? body.size() : 0) + " tickets");
             return body != null ? body : Collections.emptyList();
         } catch (IOException e) {

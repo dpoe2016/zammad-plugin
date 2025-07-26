@@ -19,13 +19,15 @@ public class Ticket {
     private final String customer_id;
     private final String created_at;
     private final String updated_at;
+    private final Integer organizationId;
+    private String organizationName;
 
     // Cache for ticket tags to avoid unnecessary API calls
     private static final Map<Integer, List<String>> tagCache = new HashMap<>();
     private List<String> tags;
 
     public Ticket(int id, String title, String number, String state, String priority, 
-                  String group, String customer, String created_at, String updated_at) {
+                  String group, String customer, String created_at, String updated_at, Integer organizationId) {
         this.id = id;
         this.title = title;
         this.number = number;
@@ -35,6 +37,7 @@ public class Ticket {
         this.customer_id = customer;
         this.created_at = created_at;
         this.updated_at = updated_at;
+        this.organizationId = organizationId;
     }
 
     public int getId() {
@@ -73,6 +76,15 @@ public class Ticket {
         return updated_at;
     }
 
+    public Integer getOrganizationId() {
+        return organizationId;
+    }
+    public String getOrganizationName() {
+        return organizationName;
+    }
+    public void setOrganizationName(String organizationName) {
+        this.organizationName = organizationName;
+    }
 
     @Override
     public String toString() {
